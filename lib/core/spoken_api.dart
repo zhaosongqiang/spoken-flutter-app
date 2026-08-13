@@ -20,6 +20,8 @@ class ApiException implements Exception {
 class SpokenApi {
   SpokenApi._(this._dio);
 
+  static const _apiPrefix = '/api/v1';
+
   static const defaultBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://localhost:8080',
@@ -42,25 +44,27 @@ class SpokenApi {
   }
 
   Future<AccountBootstrap> bootstrap() async {
-    final json = await _requestJson('POST', '/account/bootstrap',
+    final json = await _requestJson('POST', '$_apiPrefix/account/bootstrap',
         timeout: const Duration(seconds: 15));
     return AccountBootstrap.fromJson(json);
   }
 
   Future<SpokenLibrary> currentSeasonTests() async => SpokenLibrary.fromJson(
-        await _requestJson('GET', '/test_and_question/current_season_tests',
+        await _requestJson(
+            'GET', '$_apiPrefix/test_and_question/current_season_tests',
             retryQueries: true),
       );
 
   Future<SpokenLibrary> cambridgeTests() async => SpokenLibrary.fromJson(
-        await _requestJson('GET', '/test_and_question/cambridge_tests',
+        await _requestJson(
+            'GET', '$_apiPrefix/test_and_question/cambridge_tests',
             retryQueries: true),
       );
 
   Future<SpokenQuestions> questions(int testId, {int? part}) async {
     final json = await _requestJson(
       'GET',
-      '/test_and_question/tests/$testId/questions',
+      '$_apiPrefix/test_and_question/tests/$testId/questions',
       queryParameters: part == null ? null : <String, Object>{'part': part},
       retryQueries: true,
     );
@@ -83,7 +87,7 @@ class SpokenApi {
     });
     final json = await _requestJson(
       'POST',
-      '/pronunciation/ielts_assessment',
+      '$_apiPrefix/pronunciation/ielts_assessment',
       data: form,
       timeout: const Duration(seconds: 90),
     );
@@ -93,7 +97,7 @@ class SpokenApi {
   Future<AiEvaluation> aiEvaluation(int detailId) async {
     final json = await _requestJson(
       'POST',
-      '/pronunciation/ai_eval',
+      '$_apiPrefix/pronunciation/ai_eval',
       data: <String, Object>{'detailId': detailId},
       contentType: Headers.formUrlEncodedContentType,
       timeout: const Duration(seconds: 150),
@@ -104,7 +108,7 @@ class SpokenApi {
   Future<Uint8List> aiSpoken(int recordId, {int? questionId}) async {
     try {
       final response = await _dio.post<List<int>>(
-        '/pronunciation/ai_spoken',
+        '$_apiPrefix/pronunciation/ai_spoken',
         data: <String, Object>{
           'recordId': recordId,
           if (questionId != null) 'questionId': questionId,
@@ -126,7 +130,7 @@ class SpokenApi {
   Future<RecordPage> records({int? cursorId, int pageSize = 20}) async {
     final json = await _requestJson(
       'GET',
-      '/assessment_record/list',
+      '$_apiPrefix/assessment_record/list',
       queryParameters: <String, Object>{
         'pageSize': pageSize,
         if (cursorId != null) 'cursorId': cursorId,
@@ -140,7 +144,7 @@ class SpokenApi {
       RecordDetails.fromJson(
         await _requestJson(
           'GET',
-          '/assessment_record/$recordId/details',
+          '$_apiPrefix/assessment_record/$recordId/details',
           retryQueries: true,
         ),
       );
