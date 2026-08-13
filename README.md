@@ -7,6 +7,8 @@ Open Design `Mobile App` 的 Flutter 实现，支持 iOS 15+ 和 Web，连接同
 后端默认地址为 `http://localhost:8080`。Flutter Web 固定使用 5174 端口，以匹配服务端本地 CORS 配置。
 客户端会在该地址后自动追加统一的 `/api/v1` 接口前缀，因此
 `API_BASE_URL` 只需配置协议、域名和端口，不要包含 `/api/v1`。
+服务端的 `/api` 由 Spring MVC 统一添加，版本 `/v1` 声明在各 Controller 的
+`@RequestMapping` 上。
 
 修改服务端 CORS 配置后需要重启 `spoken-server`；也可以通过
 `SPOKEN_CORS_ALLOWED_ORIGINS` 传入逗号分隔的 Web 来源。
