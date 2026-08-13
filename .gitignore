@@ -1,0 +1,85 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code settings are intentionally versionable by default.
+# .vscode/
+
+# Flutter / Dart / Pub
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+/coverage/
+.widget_preview/
+**/dgph
+
+# Flutter SDK managers
+.fvm/flutter_sdk
+
+# Symbolication and obfuscation outputs
+app.*.symbols
+app.*.map.json
+
+# iOS / Xcode generated files
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+**/*sync/
+**/DerivedData/
+**/xcuserdata/
+ios/.symlinks/
+ios/Pods/
+ios/Flutter/.last_build_id
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Local test and browser artifacts
+.playwright-cli/
+test-results/
+playwright-report/
+
+# Local environment and signing secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.pem
+*.key
+
+# Keep application dependency locks and Flutter metadata in version control:
+# pubspec.lock
+# .metadata
