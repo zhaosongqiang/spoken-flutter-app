@@ -24,11 +24,15 @@ flutter run -d ios --dart-define=API_BASE_URL=http://localhost:8080
 
 真机联调时将 `API_BASE_URL` 改为可由 iPhone 访问的 HTTPS 或局域网地址。
 
+Web 浏览器可能忽略录音时请求的 16kHz 采样率并输出 48kHz。客户端会在录音停止后、
+上传评分前解析 WAV，并统一转换为 PCM16、16000Hz、mono；iOS 录音文件保持原样。
+
 ## 验证
 
 ```bash
 flutter analyze
 flutter test
+flutter test --platform chrome test/wav_pcm16_test.dart
 flutter build web --release --dart-define=API_BASE_URL=http://localhost:8080
 flutter build ios --simulator --dart-define=API_BASE_URL=http://localhost:8080
 ```

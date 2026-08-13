@@ -1,0 +1,206 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+const _pcmFormat = 1;
+const _pcmBitsPerSample = 16;
+const _wavHeaderSize = 44;
+
+/// Converts a PCM16 WAV to the sample rate and channel count required by
+/// SpeechSuper. Downsampling uses area averaging to avoid simply dropping
+/// samples and introducing excessive aliasing.
+Uint8List normalizePcm16Wav(
+  Uint8List bytes, {
+  required int targetSampleRate,
+  required int targetChannels,
+}) {
+  if (targetSampleRate <= 0 || targetChannels != 1) {
+    throw const FormatException('Unsupported target WAV format');
+  }
+
+  final source = _readPcm16Wav(bytes);
+  if (source.sampleRate == targetSampleRate &&
+      source.channels == targetChannels) {
+    return bytes;
+  }
+
+  final sourceFrames = source.dataLength ~/ source.blockAlign;
+  if (sourceFrames == 0) {
+    throw const FormatException('WAV contains no audio frames');
+  }
+  final targetFrames = math.max(
+    1,
+    (sourceFrames * targetSampleRate / source.sampleRate).round(),
+  );
+  final output = Uint8List(_wavHeaderSize + targetFrames * 2);
+  final outputView = ByteData.sublistView(output);
+  _writeHeader(outputView, targetSampleRate, targetFrames * 2);
+
+  final sourceView = ByteData.sublistView(bytes);
+  final sourceStep = sourceFrames / targetFrames;
+  for (var frame = 0; frame < targetFrames; frame++) {
+    final value = sourceStep >= 1
+        ? _downsampleFrame(
+            sourceView,
+            source,
+            frame * sourceStep,
+            math.min(sourceFrames.toDouble(), (frame + 1) * sourceStep),
+          )
+        : _interpolateFrame(
+            sourceView,
+            source,
+            math.min(
+              sourceFrames - 1.0,
+              (frame + 0.5) * sourceStep - 0.5,
+            ),
+            sourceFrames,
+          );
+    outputView.setInt16(
+      _wavHeaderSize + frame * 2,
+      value.round().clamp(-32768, 32767).toInt(),
+      Endian.little,
+    );
+  }
+  return output;
+}
+
+double _downsampleFrame(
+  ByteData bytes,
+  _Pcm16Wav source,
+  double start,
+  double end,
+) {
+  var cursor = start;
+  var weightedSum = 0.0;
+  var totalWeight = 0.0;
+  while (cursor < end) {
+    final frame = cursor.floor();
+    final boundary = math.min(end, frame + 1.0);
+    final weight = boundary - cursor;
+    weightedSum += _readMonoFrame(bytes, source, frame) * weight;
+    totalWeight += weight;
+    cursor = boundary;
+  }
+  return totalWeight == 0 ? 0 : weightedSum / totalWeight;
+}
+
+double _interpolateFrame(
+  ByteData bytes,
+  _Pcm16Wav source,
+  double position,
+  int sourceFrames,
+) {
+  final safePosition = math.max(0.0, position);
+  final left = safePosition.floor();
+  final right = math.min(sourceFrames - 1, left + 1);
+  final fraction = safePosition - left;
+  final leftValue = _readMonoFrame(bytes, source, left);
+  final rightValue = _readMonoFrame(bytes, source, right);
+  return leftValue + (rightValue - leftValue) * fraction;
+}
+
+double _readMonoFrame(ByteData bytes, _Pcm16Wav source, int frame) {
+  final frameOffset = source.dataOffset + frame * source.blockAlign;
+  var sum = 0;
+  for (var channel = 0; channel < source.channels; channel++) {
+    sum += bytes.getInt16(frameOffset + channel * 2, Endian.little);
+  }
+  return sum / source.channels;
+}
+
+_Pcm16Wav _readPcm16Wav(Uint8List bytes) {
+  if (bytes.length < 12 ||
+      _fourCc(bytes, 0) != 'RIFF' ||
+      _fourCc(bytes, 8) != 'WAVE') {
+    throw const FormatException('Invalid WAV container');
+  }
+
+  final view = ByteData.sublistView(bytes);
+  int? audioFormat;
+  int? channels;
+  int? sampleRate;
+  int? blockAlign;
+  int? bitsPerSample;
+  int? dataOffset;
+  int? dataLength;
+  var offset = 12;
+  while (offset + 8 <= bytes.length) {
+    final chunkId = _fourCc(bytes, offset);
+    final chunkLength = view.getUint32(offset + 4, Endian.little);
+    final payloadOffset = offset + 8;
+    if (chunkLength > bytes.length - payloadOffset) {
+      throw const FormatException('Truncated WAV chunk');
+    }
+    if (chunkId == 'fmt ' && chunkLength >= 16) {
+      audioFormat = view.getUint16(payloadOffset, Endian.little);
+      channels = view.getUint16(payloadOffset + 2, Endian.little);
+      sampleRate = view.getUint32(payloadOffset + 4, Endian.little);
+      blockAlign = view.getUint16(payloadOffset + 12, Endian.little);
+      bitsPerSample = view.getUint16(payloadOffset + 14, Endian.little);
+    } else if (chunkId == 'data') {
+      dataOffset = payloadOffset;
+      dataLength = chunkLength;
+    }
+    offset = payloadOffset + chunkLength + (chunkLength.isOdd ? 1 : 0);
+  }
+
+  if (audioFormat != _pcmFormat ||
+      channels == null ||
+      channels <= 0 ||
+      sampleRate == null ||
+      sampleRate <= 0 ||
+      bitsPerSample != _pcmBitsPerSample ||
+      blockAlign == null ||
+      blockAlign < channels * 2 ||
+      dataOffset == null ||
+      dataLength == null) {
+    throw const FormatException('WAV must contain PCM16 audio');
+  }
+  return _Pcm16Wav(
+    sampleRate: sampleRate,
+    channels: channels,
+    blockAlign: blockAlign,
+    dataOffset: dataOffset,
+    dataLength: dataLength,
+  );
+}
+
+void _writeHeader(ByteData view, int sampleRate, int dataLength) {
+  _writeFourCc(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataLength, Endian.little);
+  _writeFourCc(view, 8, 'WAVE');
+  _writeFourCc(view, 12, 'fmt ');
+  view.setUint32(16, 16, Endian.little);
+  view.setUint16(20, _pcmFormat, Endian.little);
+  view.setUint16(22, 1, Endian.little);
+  view.setUint32(24, sampleRate, Endian.little);
+  view.setUint32(28, sampleRate * 2, Endian.little);
+  view.setUint16(32, 2, Endian.little);
+  view.setUint16(34, _pcmBitsPerSample, Endian.little);
+  _writeFourCc(view, 36, 'data');
+  view.setUint32(40, dataLength, Endian.little);
+}
+
+String _fourCc(Uint8List bytes, int offset) =>
+    String.fromCharCodes(bytes.sublist(offset, offset + 4));
+
+void _writeFourCc(ByteData view, int offset, String value) {
+  for (var index = 0; index < value.length; index++) {
+    view.setUint8(offset + index, value.codeUnitAt(index));
+  }
+}
+
+class _Pcm16Wav {
+  const _Pcm16Wav({
+    required this.sampleRate,
+    required this.channels,
+    required this.blockAlign,
+    required this.dataOffset,
+    required this.dataLength,
+  });
+
+  final int sampleRate;
+  final int channels;
+  final int blockAlign;
+  final int dataOffset;
+  final int dataLength;
+}

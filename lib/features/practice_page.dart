@@ -42,10 +42,30 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     super.initState();
     _recorder = VoiceRecorder()..addListener(_recorderChanged);
     _questions = _load();
-    ref.read(practiceSessionProvider.notifier).begin(
-          widget.testId,
-          widget.initialTitle ?? '口语练习',
-        );
+    _scheduleSessionBegin(widget.initialTitle ?? '口语练习');
+  }
+
+  @override
+  void didUpdateWidget(covariant PracticePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.testId == widget.testId &&
+        oldWidget.mode == widget.mode &&
+        oldWidget.part == widget.part) {
+      return;
+    }
+    _index = 0;
+    _assessmentError = null;
+    _questions = _load();
+    _scheduleSessionBegin(widget.initialTitle ?? '口语练习');
+  }
+
+  void _scheduleSessionBegin(String title) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final session = ref.read(practiceSessionProvider);
+      if (session.testId == widget.testId && session.title == title) return;
+      ref.read(practiceSessionProvider.notifier).begin(widget.testId, title);
+    });
   }
 
   Future<SpokenQuestions> _load() async {
@@ -207,9 +227,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
             ? data.test!.name
             : session.title;
     if (session.title == '口语练习' && title != '口语练习') {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(practiceSessionProvider.notifier).begin(widget.testId, title);
-      });
+      _scheduleSessionBegin(title);
     }
 
     return AppFrame(

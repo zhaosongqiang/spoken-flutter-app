@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 import 'recording_path.dart';
+import 'speechsuper_wav_normalizer.dart';
 
 enum VoiceRecorderStatus { idle, recording, processing }
 
@@ -84,7 +85,12 @@ class VoiceRecorder extends ChangeNotifier {
       if (!_looksLikeWav(bytes)) {
         throw const VoiceRecorderException('录音格式无效，请重试');
       }
-      return RecordedWav(bytes: bytes, duration: duration);
+      try {
+        final normalizedBytes = await normalizeSpeechSuperWav(bytes);
+        return RecordedWav(bytes: normalizedBytes, duration: duration);
+      } on FormatException {
+        throw const VoiceRecorderException('录音格式无效，请重试');
+      }
     } catch (error) {
       _error = _messageFor(error);
       rethrow;
