@@ -10,26 +10,37 @@ class AppFrame extends StatelessWidget {
   const AppFrame({
     required this.body,
     this.title,
+    this.subtitle,
     this.onBack,
     this.actions,
     this.bottom,
+    this.bottomColor = AppColors.background,
+    this.bottomPadding = const EdgeInsets.fromLTRB(18, 10, 18, 12),
     this.padding = const EdgeInsets.fromLTRB(18, 0, 18, 28),
     super.key,
   });
 
   final Widget body;
   final String? title;
+  final String? subtitle;
   final VoidCallback? onBack;
   final List<Widget>? actions;
   final Widget? bottom;
+  final Color bottomColor;
+  final EdgeInsets bottomPadding;
   final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => ColoredBox(
         color: AppColors.canvas,
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 480),
+            decoration: const BoxDecoration(
+              border: Border.symmetric(
+                vertical: BorderSide(color: AppColors.border),
+              ),
+            ),
             child: Scaffold(
               appBar: title == null
                   ? null
@@ -40,23 +51,41 @@ class AppFrame extends StatelessWidget {
                       scrolledUnderElevation: 0,
                       backgroundColor: AppColors.background,
                       surfaceTintColor: Colors.transparent,
-                      shape: const Border(
-                        bottom: BorderSide(color: AppColors.border),
-                      ),
-                      leadingWidth: 78,
+                      leadingWidth: 48,
                       leading: onBack == null
                           ? null
-                          : TextButton.icon(
+                          : IconButton(
+                              tooltip: '返回',
                               onPressed: onBack,
-                              icon: const Icon(Icons.chevron_left, size: 22),
-                              label: const Text('返回'),
+                              icon: const Icon(Icons.chevron_left, size: 24),
                             ),
-                      title: Text(
-                        title!,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      title: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            title!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              height: 1.2,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          if (subtitle != null)
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontFamily: 'monospace',
+                                fontSize: 10,
+                                height: 1.3,
+                              ),
+                            ),
+                        ],
                       ),
                       actions: actions,
                     ),
@@ -69,13 +98,14 @@ class AppFrame extends StatelessWidget {
                   : SafeArea(
                       top: false,
                       child: DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFAFFFFFF),
-                          border:
-                              Border(top: BorderSide(color: AppColors.border)),
+                        decoration: BoxDecoration(
+                          color: bottomColor,
+                          border: const Border(
+                            top: BorderSide(color: AppColors.border),
+                          ),
                         ),
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(18, 11, 18, 12),
+                          padding: bottomPadding,
                           child: bottom,
                         ),
                       ),
@@ -95,11 +125,10 @@ class Eyebrow extends StatelessWidget {
   Widget build(BuildContext context) => Text(
         text.toUpperCase(),
         style: const TextStyle(
-          color: AppColors.accent,
-          fontFamily: 'monospace',
+          color: AppColors.muted,
           fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1,
         ),
       );
 }
@@ -122,67 +151,97 @@ class StatePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 36),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (loading)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 18),
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 18),
-                  child: Icon(Icons.info_outline,
-                      size: 42, color: AppColors.muted),
-                ),
-              Text(title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge),
-              if (description != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  description!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320, minHeight: 280),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 36),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (loading)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 18),
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  )
+                else
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 18),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: const Icon(
+                        Icons.info_outline,
+                        size: 24,
+                        color: AppColors.foreground,
+                      ),
+                    ),
+                  ),
+                Text(title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge),
+                if (description != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    description!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+                if (action != null && onAction != null) ...[
+                  const SizedBox(height: 20),
+                  FilledButton(onPressed: onAction, child: Text(action!)),
+                ],
               ],
-              if (action != null && onAction != null) ...[
-                const SizedBox(height: 20),
-                FilledButton(onPressed: onAction, child: Text(action!)),
-              ],
-            ],
+            ),
           ),
         ),
       );
 }
 
 class ScoreBadge extends StatelessWidget {
-  const ScoreBadge(this.score, {super.key});
+  const ScoreBadge(this.score, {this.pill = true, super.key});
 
   final double? score;
+  final bool pill;
 
   @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(
-            score?.toStringAsFixed(1) ?? '—',
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w800,
-              fontSize: 21,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Text('/ 9',
-              style: TextStyle(fontSize: 10, color: AppColors.muted)),
-        ],
+  Widget build(BuildContext context) {
+    final label = '${score?.toStringAsFixed(1) ?? '—'} / 9';
+    if (!pill) {
+      return Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.muted,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       );
+    }
+    return Container(
+      constraints: const BoxConstraints(minWidth: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.foreground,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.background,
+          fontFamily: 'monospace',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
 }
 
 class AudioAction extends ConsumerWidget {
@@ -190,12 +249,14 @@ class AudioAction extends ConsumerWidget {
     required this.audioKey,
     required this.url,
     required this.label,
+    this.iconOnly = false,
     super.key,
   });
 
   final String audioKey;
   final String url;
   final String label;
+  final bool iconOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -205,20 +266,38 @@ class AudioAction extends ConsumerWidget {
       builder: (context, snapshot) {
         final playing =
             service.activeKey == audioKey && (snapshot.data?.playing ?? false);
+        Future<void> toggle() async {
+          try {
+            await service.toggleUrl(audioKey, url);
+          } catch (error) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('音频播放失败：$error')),
+              );
+            }
+          }
+        }
+
+        if (iconOnly) {
+          return Tooltip(
+            message: playing ? '停止播放' : label,
+            child: IconButton(
+              onPressed: url.isEmpty ? null : toggle,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                foregroundColor:
+                    playing ? AppColors.background : AppColors.accent,
+                backgroundColor:
+                    playing ? AppColors.foreground : Colors.transparent,
+                disabledForegroundColor: AppColors.border,
+              ),
+              icon:
+                  Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
+            ),
+          );
+        }
         return TextButton.icon(
-          onPressed: url.isEmpty
-              ? null
-              : () async {
-                  try {
-                    await service.toggleUrl(audioKey, url);
-                  } catch (error) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('音频播放失败：$error')),
-                      );
-                    }
-                  }
-                },
+          onPressed: url.isEmpty ? null : toggle,
           icon: Icon(
               playing ? Icons.stop_circle_outlined : Icons.play_circle_outline),
           label: Text(playing ? '停止播放' : label),

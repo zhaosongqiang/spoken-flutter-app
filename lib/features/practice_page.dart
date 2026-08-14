@@ -218,8 +218,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     final currentAnswer = session.answers
         .where((answer) => answer.question.id == question.id)
         .firstOrNull;
-    final progress =
-        (_index + (currentAnswer == null ? 0 : 1)) / questions.length;
+    final progress = (_index + 1) / questions.length;
     final atLast = _index == questions.length - 1;
     final title = data.test?.displayName.isNotEmpty == true
         ? data.test!.displayName
@@ -232,17 +231,27 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
     return AppFrame(
       padding: EdgeInsets.zero,
-      bottom: _recordingDock(question),
+      bottomColor: AppColors.surface,
+      bottomPadding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+      bottom: _recordingDock(
+        question,
+        currentAnswer: currentAnswer,
+        atLast: atLast,
+        questionCount: questions.length,
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+            padding: const EdgeInsets.fromLTRB(0, 4, 0, 2),
             child: Row(
               children: [
                 SizedBox(
-                  width: 54,
-                  child: TextButton(
-                      onPressed: _requestExit, child: const Text('返回')),
+                  width: 48,
+                  child: IconButton(
+                    tooltip: '返回选题',
+                    onPressed: _requestExit,
+                    icon: const Icon(Icons.chevron_left, size: 24),
+                  ),
                 ),
                 Expanded(
                   child: Column(
@@ -251,23 +260,27 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
                       ),
                       Text(
-                        'Part ${question.part} · Q${_index + 1}/${questions.length}',
+                        '${_index + 1} / ${questions.length}',
                         style: const TextStyle(
+                          color: AppColors.muted,
                           fontFamily: 'monospace',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
                         ),
                       ),
                     ],
                   ),
                 ),
                 SizedBox(
-                  width: 54,
-                  child: TextButton(
-                      onPressed: _requestExit, child: const Text('结束')),
+                  width: 48,
+                  child: IconButton(
+                    tooltip: '结束本次练习',
+                    onPressed: _requestExit,
+                    icon: const Icon(Icons.close, size: 22),
+                  ),
                 ),
               ],
             ),
@@ -275,12 +288,12 @@ class _PracticePageState extends ConsumerState<PracticePage> {
           LinearProgressIndicator(
             value: progress,
             minHeight: 4,
-            backgroundColor: AppColors.border,
+            backgroundColor: AppColors.surface,
           ),
           Expanded(
             child: ListView(
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
               children: [
                 for (final answer in session.answers
                     .where((item) => item.question.id != question.id)) ...[
@@ -310,17 +323,6 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                     ),
                   ),
                 ],
-                if (currentAnswer != null) ...[
-                  const SizedBox(height: 18),
-                  FilledButton(
-                    onPressed: atLast
-                        ? () => context.push(
-                              '/feedback/${currentAnswer.result.recordId}/${currentAnswer.result.detailId}?from=practice',
-                            )
-                        : () => _next(questions.length),
-                    child: Text(atLast ? '查看本题完整反馈' : '下一题'),
-                  ),
-                ],
               ],
             ),
           ),
@@ -329,31 +331,30 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     );
   }
 
-  Widget _recordingDock(QuestionItem question) {
+  Widget _recordingDock(
+    QuestionItem question, {
+    required CompletedAnswer? currentAnswer,
+    required bool atLast,
+    required int questionCount,
+  }) {
     final recording = _recorder.status == VoiceRecorderStatus.recording;
     final seconds = _recorder.elapsed.inSeconds;
     return SizedBox(
-      height: 78,
+      height: 82,
       child: Column(
         children: [
           Expanded(
             child: Row(
               children: [
-                Expanded(
+                SizedBox(
+                  width: 72,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        recording
-                            ? '正在录音'
-                            : _assessing
-                                ? '正在评测'
-                                : '准备录音',
+                        recording ? '正在录音' : '时长',
                         style: TextStyle(
-                          color: recording
-                              ? const Color(0xFFCF1322)
-                              : AppColors.muted,
+                          color: recording ? AppColors.accent : AppColors.muted,
                           fontSize: 11,
                           fontWeight:
                               recording ? FontWeight.w700 : FontWeight.normal,
@@ -369,6 +370,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                     ],
                   ),
                 ),
+                const Spacer(),
                 Semantics(
                   button: true,
                   label: recording ? '停止录音' : '开始录音',
@@ -376,40 +378,62 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                     onTap: _assessing ? null : () => _toggleRecording(question),
                     customBorder: const CircleBorder(),
                     child: Container(
-                      width: 62,
-                      height: 62,
+                      width: 68,
+                      height: 68,
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: recording
-                            ? const Color(0xFFFF4D4F)
-                            : AppColors.background,
-                        border: Border.all(
-                          color: recording
-                              ? const Color(0xFFFF4D4F)
-                              : AppColors.foreground,
-                          width: 2,
-                        ),
+                        color: _assessing
+                            ? AppColors.surface
+                            : AppColors.accentSoft,
                       ),
-                      child: Center(
-                        child: Container(
-                          width: recording ? 24 : 34,
-                          height: recording ? 24 : 34,
-                          decoration: BoxDecoration(
-                            color:
-                                recording ? Colors.white : AppColors.foreground,
-                            borderRadius:
-                                BorderRadius.circular(recording ? 5 : 17),
-                          ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color:
+                              _assessing ? AppColors.border : AppColors.accent,
+                        ),
+                        child: Center(
+                          child: recording
+                              ? Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.mic_none_rounded,
+                                  color: AppColors.background,
+                                  size: 28,
+                                ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const Expanded(
-                  child: Text(
-                    '最长 02:00',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(color: AppColors.muted, fontSize: 11),
+                const Spacer(),
+                SizedBox(
+                  width: 72,
+                  child: TextButton(
+                    onPressed: recording || _assessing
+                        ? null
+                        : atLast
+                            ? currentAnswer == null
+                                ? null
+                                : () => context.push(
+                                      '/feedback/${currentAnswer.result.recordId}/${currentAnswer.result.detailId}?from=practice',
+                                    )
+                            : () => _next(questionCount),
+                    child: Text(
+                      atLast
+                          ? currentAnswer == null
+                              ? '最后一题'
+                              : '查看反馈'
+                          : '下一题',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                 ),
               ],
@@ -435,38 +459,57 @@ class _QuestionCard extends StatelessWidget {
   final bool compact;
 
   @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 14 : 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'PART ${question.part} · QUESTION ${question.seqNo}',
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontFamily: 'monospace',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(right: 36),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: -5,
+              top: 22,
+              child: Transform.rotate(
+                angle: 0.785398,
+                child: Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border.all(color: AppColors.border),
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                question.questionText,
-                style: compact
-                    ? Theme.of(context).textTheme.titleMedium
-                    : Theme.of(context).textTheme.titleLarge,
-              ),
-              if (!compact) ...[
-                const SizedBox(height: 10),
-                AudioAction(
-                  audioKey: 'question-${question.id}',
-                  url: question.audioUrl,
-                  label: '播放题目',
+            ),
+            Card(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    compact ? 14 : 18, 16, 10, compact ? 10 : 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        question.questionText,
+                        style: const TextStyle(
+                          color: AppColors.foreground,
+                          fontSize: 17,
+                          height: 1.55,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.25,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AudioAction(
+                      audioKey: 'question-${question.id}',
+                      url: question.audioUrl,
+                      label: '播放题目',
+                      iconOnly: true,
+                    ),
+                  ],
                 ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       );
 }
@@ -477,38 +520,77 @@ class _AnswerCard extends StatelessWidget {
   final CompletedAnswer answer;
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(left: 22),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(left: 36),
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Text(answer.result.transcription,
-                style: Theme.of(context).textTheme.bodyLarge),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                ScoreBadge(answer.result.score),
-                const Spacer(),
-                AudioAction(
-                  audioKey: 'answer-${answer.result.detailId}',
-                  url: answer.result.audioPath,
-                  label: '我的回答',
-                ),
-                TextButton(
-                  onPressed: () => context.push(
-                    '/feedback/${answer.result.recordId}/${answer.result.detailId}?from=practice',
+            Positioned(
+              right: -5,
+              top: 22,
+              child: Transform.rotate(
+                angle: 0.785398,
+                child: Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentSoft,
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: const Text('反馈'),
                 ),
-              ],
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.accentSoft,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                    child: Text(
+                      answer.result.transcription,
+                      style: const TextStyle(fontSize: 17, height: 1.55),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+                    decoration: const BoxDecoration(
+                      color: AppColors.background,
+                      border: Border(
+                        top: BorderSide(color: AppColors.border),
+                      ),
+                      borderRadius:
+                          BorderRadius.vertical(bottom: Radius.circular(8)),
+                    ),
+                    child: Row(
+                      children: [
+                        ScoreBadge(answer.result.score),
+                        const SizedBox(width: 6),
+                        TextButton(
+                          onPressed: () => context.push(
+                            '/feedback/${answer.result.recordId}/${answer.result.detailId}?from=practice',
+                          ),
+                          child: const Text(
+                            '查看评分详情',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        const Spacer(),
+                        AudioAction(
+                          audioKey: 'answer-${answer.result.detailId}',
+                          url: answer.result.audioPath,
+                          label: '播放我的回答',
+                          iconOnly: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

@@ -47,6 +47,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       setState(() => _loadingMore = true);
     }
     try {
+      await ref.read(accountBootstrapProvider.future);
       final api = await ref.read(spokenApiProvider.future);
       final page = await api.records(cursorId: reset ? null : _cursor);
       if (!mounted) return;
@@ -111,18 +112,60 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       child: ListView(
         controller: _controller,
         children: [
-          const SizedBox(height: 26),
-          const Eyebrow('YOUR PRACTICE'),
           const SizedBox(height: 8),
-          Text('每一次开口，\n都算作进步。',
-              style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 13),
-          Text(
-            '${_records.length} 次练习',
-            style: const TextStyle(
-                fontFamily: 'monospace', color: AppColors.muted, fontSize: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '口语练习轨迹',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '每一次开口，\n都算作进步。',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                constraints: const BoxConstraints(minWidth: 58),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_records.length}',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 18,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    const Text('次练习',
+                        style: TextStyle(color: AppColors.muted, fontSize: 10)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           const Divider(height: 1),
           const SizedBox(height: 22),
           for (final group in groups.entries) ...[
@@ -135,9 +178,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
-            const SizedBox(height: 8),
-            for (final record in group.value) _RecordRow(record: record),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
+            for (final record in group.value)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _RecordRow(record: record),
+              ),
+            const SizedBox(height: 16),
           ],
           if (_loadingMore)
             const Padding(
@@ -147,9 +194,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           else if (!_hasMore)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text('已经到底了',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.muted)),
+              child: Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('已经到底了',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11)),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
             ),
           if (_error != null && _records.isNotEmpty)
             TextButton(
@@ -166,50 +221,73 @@ class _RecordRow extends StatelessWidget {
   final AssessmentRecord record;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: () => context.push('/history/${record.id}'),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 76),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppColors.border)),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 44,
-                child: Text(
-                  record.id.toString().padLeft(2, '0').substring(
-                      record.id.toString().padLeft(2, '0').length - 2),
-                  style: const TextStyle(
-                    color: AppColors.accent,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w800,
-                    fontSize: 19,
+  Widget build(BuildContext context) => Material(
+        color: AppColors.background,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: InkWell(
+          onTap: () => context.push('/history/${record.id}'),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 78),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.foreground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _bookMark(record.bookName),
+                    style: const TextStyle(
+                      color: AppColors.background,
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${record.bookName} · ${record.testName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${DateFormat('HH:mm').format(record.createAt)} · 查看完整问答与评分',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${record.bookName} · ${record.testName}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${DateFormat('HH:mm').format(record.createAt)}  ·  查看完整问答与评分',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.muted),
-            ],
+                const Icon(Icons.chevron_right,
+                    size: 20, color: AppColors.muted),
+              ],
+            ),
           ),
         ),
       );
+
+  String _bookMark(String value) {
+    final digits = RegExp(r'\d+').firstMatch(value)?.group(0);
+    if (digits != null && digits.isNotEmpty) return digits;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? 'P' : trimmed.substring(0, 1).toUpperCase();
+  }
 }

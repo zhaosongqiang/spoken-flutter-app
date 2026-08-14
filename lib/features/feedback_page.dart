@@ -51,6 +51,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       _detailsError = null;
     });
     try {
+      await ref.read(accountBootstrapProvider.future);
       final api = await ref.read(spokenApiProvider.future);
       final data = await api.recordDetails(widget.recordId);
       AssessmentDetail? detail;
@@ -132,9 +133,10 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         actions: _detail == null
             ? null
             : [
-                TextButton(
+                IconButton(
+                  tooltip: '复制评分摘要',
                   onPressed: () => _copy(_summaryText(), '评分摘要已复制'),
-                  child: const Text('复制摘要'),
+                  icon: const Icon(Icons.ios_share_outlined, size: 21),
                 ),
               ],
         bottom: _evaluation == null
@@ -143,6 +145,9 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                 onPressed: () => _copy(_improvementText(), '本题改进清单已复制'),
                 icon: const Icon(Icons.copy, size: 18),
                 label: const Text('复制本题改进清单'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                ),
               ),
         body: _body(),
       );
@@ -204,6 +209,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
           ),
           const SizedBox(height: 10),
           Card(
+            color: AppColors.accentSoft,
             child: Padding(
               padding: const EdgeInsets.all(17),
               child: Column(
@@ -215,10 +221,12 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                   ),
                   const SizedBox(height: 12),
                   Container(
-                    padding: const EdgeInsets.only(left: 14),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                          left: BorderSide(color: AppColors.accent, width: 3)),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       _evaluation!.improvedAnswerText,
@@ -236,9 +244,18 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   }
 
   Widget _metricTabs(AssessmentDetail detail) => Container(
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
+          color: AppColors.background,
           border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D111111),
+              blurRadius: 14,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -260,10 +277,17 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       child: InkWell(
         onTap: () => setState(() => _metric = metric),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           decoration: BoxDecoration(
             color: selected ? AppColors.accentSoft : null,
             borderRadius: BorderRadius.circular(7),
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? AppColors.accent : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
           child: Column(
             children: [
@@ -272,8 +296,8 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                 style: TextStyle(
                   fontFamily: 'monospace',
                   fontWeight: FontWeight.w800,
-                  fontSize: 17,
-                  color: selected ? AppColors.accent : AppColors.foreground,
+                  fontSize: 14,
+                  color: selected ? AppColors.foreground : AppColors.muted,
                 ),
               ),
               Text(label, style: const TextStyle(fontSize: 10)),
@@ -369,7 +393,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
               Expanded(
                   child: Text(title,
                       style: Theme.of(context).textTheme.titleLarge)),
-              ScoreBadge(score),
+              ScoreBadge(score, pill: false),
             ],
           ),
           const SizedBox(height: 10),
@@ -464,6 +488,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.background,
+                border: Border.all(color: AppColors.border),
                 borderRadius: BorderRadius.circular(7),
               ),
               child: Text(_readableItem(items[index], index)),
@@ -578,67 +603,80 @@ class _ScoreSummary extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.foreground,
+        border: Border.all(color: AppColors.foreground),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
         children: [
-          SizedBox(
-            width: 102,
-            height: 102,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CircularProgressIndicator(
-                  value: (score / 9).clamp(0, 1),
-                  strokeWidth: 9,
-                  color: AppColors.accent,
-                  backgroundColor: const Color(0xFF555555),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        score.toStringAsFixed(1),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'monospace',
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                        ),
+          Row(
+            children: [
+              SizedBox(
+                width: 112,
+                height: 112,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: (score / 9).clamp(0, 1),
+                      strokeWidth: 12,
+                      strokeCap: StrokeCap.butt,
+                      color: AppColors.accent,
+                      backgroundColor: const Color(0xFF555555),
+                    ),
+                    Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            score.toStringAsFixed(1),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'monospace',
+                              fontSize: 34,
+                              height: 1,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text('/ 9.0',
+                              style: TextStyle(
+                                  color: AppColors.border, fontSize: 11)),
+                        ],
                       ),
-                      const Text('/ 9.0',
-                          style: TextStyle(
-                              color: Color(0xFFBFC3CA), fontSize: 10)),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 17),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
                   evaluation?.overallSummary.isNotEmpty == true
                       ? evaluation!.overallSummary
                       : '基础评分已保存，正在生成深度反馈。',
-                  style: const TextStyle(color: Colors.white, height: 1.5),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    height: 1.55,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    _stat(
-                        '${evaluation?.relevance ?? detail.relevance ?? '—'}%',
-                        '相关性'),
-                    _stat('${evaluation?.speed ?? detail.speed ?? '—'}',
-                        '词 / 分钟'),
-                    _stat('${evaluation?.wordCount ?? detail.wordCount ?? '—'}',
-                        '词数'),
-                  ],
-                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AppColors.muted)),
+            ),
+            child: Row(
+              children: [
+                _stat('${evaluation?.relevance ?? detail.relevance ?? '—'}%',
+                    '相关性'),
+                _stat('${evaluation?.speed ?? detail.speed ?? '—'}', '词 / 分钟',
+                    separated: true),
+                _stat(
+                    '${evaluation?.wordCount ?? detail.wordCount ?? '—'}', '词数',
+                    separated: true),
               ],
             ),
           ),
@@ -647,18 +685,29 @@ class _ScoreSummary extends StatelessWidget {
     );
   }
 
-  Widget _stat(String value, String label) => Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w700)),
-            Text(label,
-                style: const TextStyle(color: Color(0xFFAEB3BC), fontSize: 9)),
-          ],
+  Widget _stat(String value, String label, {bool separated = false}) =>
+      Expanded(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(6, 12, 6, 0),
+          decoration: BoxDecoration(
+            border: separated
+                ? const Border(left: BorderSide(color: AppColors.muted))
+                : null,
+          ),
+          child: Column(
+            children: [
+              Text(value,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'monospace',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(label,
+                  style:
+                      const TextStyle(color: AppColors.border, fontSize: 10)),
+            ],
+          ),
         ),
       );
 }

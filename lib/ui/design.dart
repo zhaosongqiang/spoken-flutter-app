@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 abstract final class AppColors {
   static const background = Color(0xFFFFFFFF);
-  static const canvas = Color(0xFFF2F3F5);
-  static const surface = Color(0xFFF7F7F8);
-  static const foreground = Color(0xFF222222);
-  static const muted = Color(0xFF737986);
-  static const border = Color(0xFFE2E5EA);
+  static const canvas = Color(0xFFF7F8FA);
+  static const surface = Color(0xFFF7F8FA);
+  static const foreground = Color(0xFF111111);
+  static const muted = Color(0xFF6B7280);
+  static const border = Color(0xFFD9DEE7);
   static const accent = Color(0xFF1677FF);
-  static const accentSoft = Color(0xFFEAF2FF);
+  static const accentSoft = Color(0xFFEDF4FF);
   static const danger = Color(0xFFD4380D);
   static const success = Color(0xFF178553);
 }
@@ -32,15 +32,15 @@ ThemeData buildTheme() {
     fontFamily: 'Inter',
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
-        fontSize: 34,
-        height: 1.08,
+        fontSize: 28,
+        height: 1.2,
         fontWeight: FontWeight.w800,
-        letterSpacing: -1.2,
+        letterSpacing: -0.9,
         color: AppColors.foreground,
       ),
       headlineMedium: TextStyle(
         fontSize: 26,
-        height: 1.18,
+        height: 1.2,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.6,
         color: AppColors.foreground,
@@ -58,7 +58,7 @@ ThemeData buildTheme() {
       ),
       bodyLarge: TextStyle(
         fontSize: 15,
-        height: 1.65,
+        height: 1.6,
         color: AppColors.foreground,
       ),
       bodyMedium: TextStyle(
@@ -84,12 +84,13 @@ ThemeData buildTheme() {
     inputDecorationTheme: const InputDecorationTheme(
       filled: true,
       fillColor: AppColors.surface,
+      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: AppColors.border),
         borderRadius: BorderRadius.all(Radius.circular(8)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: AppColors.border),
         borderRadius: BorderRadius.all(Radius.circular(8)),
       ),
       focusedBorder: OutlineInputBorder(
@@ -111,6 +112,22 @@ ThemeData buildTheme() {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         foregroundColor: AppColors.foreground,
       ),
+    ),
+    appBarTheme: const AppBarTheme(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: AppColors.background,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: AppColors.foreground,
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: AppColors.background,
+      selectedColor: AppColors.foreground,
+      side: const BorderSide(color: AppColors.border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      labelStyle: const TextStyle(color: AppColors.foreground),
+      secondaryLabelStyle: const TextStyle(color: AppColors.background),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
     ),
     dividerColor: AppColors.border,
   );

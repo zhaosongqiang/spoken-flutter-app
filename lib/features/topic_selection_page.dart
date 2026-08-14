@@ -28,6 +28,7 @@ class TopicSelectionPage extends ConsumerStatefulWidget {
 
 class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   static const pageSize = 16;
+  final TextEditingController _searchController = TextEditingController();
   late Future<_Libraries> _libraries;
   LibraryMode _mode = LibraryMode.seasonal;
   TestItem? _selected;
@@ -80,6 +81,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   }
 
   Future<void> _changeMode(LibraryMode mode) async {
+    _searchController.clear();
     setState(() {
       _mode = mode;
       _search = '';
@@ -101,34 +103,56 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => AppFrame(
-        bottom: _selected == null
-            ? null
-            : Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('已选',
-                            style: TextStyle(
-                                fontSize: 11, color: AppColors.muted)),
-                        const SizedBox(height: 3),
-                        Text(
-                          _selectionTitle(_selected!),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700),
-                        ),
-                      ],
+        bottom: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle_outline,
+                    size: 16, color: AppColors.muted),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: _selected == null ? '请先选择一项练习' : '已选  ',
+                      children: _selected == null
+                          ? null
+                          : [
+                              TextSpan(
+                                text: _selectionTitle(_selected!),
+                                style: const TextStyle(
+                                  color: AppColors.foreground,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(fontSize: 12, color: AppColors.muted),
                   ),
-                  const SizedBox(width: 12),
-                  FilledButton(onPressed: _start, child: const Text('开始练习')),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: _selected == null ? null : _start,
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
               ),
+              child: Text(_mode == LibraryMode.seasonal ? '开始话题练习' : '开始完整练习'),
+            ),
+          ],
+        ),
         body: FutureBuilder<_Libraries>(
           future: _libraries,
           builder: (context, snapshot) {
@@ -170,7 +194,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.only(top: 18),
+            padding: const EdgeInsets.only(top: 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -179,16 +203,19 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Eyebrow('IELTS SPEAKING'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text('选择今天的练习',
                           style: Theme.of(context).textTheme.headlineLarge),
                     ],
                   ),
                 ),
-                TextButton.icon(
+                OutlinedButton.icon(
                   onPressed: () => context.go('/history'),
                   icon: const Icon(Icons.history, size: 19),
-                  label: const Text('练习记录'),
+                  label: const Text('练习记录', style: TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 11),
+                  ),
                 ),
               ],
             ),
@@ -196,7 +223,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
         ),
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.only(top: 10, bottom: 20),
+            padding: EdgeInsets.only(top: 10, bottom: 18),
             child: Text(
               '练当季高频话题，或按册完成剑雅口语真题。选择会自动保留。',
               style: TextStyle(color: AppColors.muted, height: 1.6),
@@ -206,24 +233,38 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
         SliverToBoxAdapter(child: _modeSwitcher()),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 15),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             child: TextField(
+              controller: _searchController,
               onChanged: (value) => setState(() {
                 _search = value;
                 _visible = pageSize;
               }),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '搜索话题、册数或 Test',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _search.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清空搜索',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _search = '';
+                            _visible = pageSize;
+                          });
+                        },
+                        icon: const Icon(Icons.close, size: 18),
+                      ),
                 isDense: true,
               ),
             ),
           ),
         ),
-        SliverToBoxAdapter(child: _filters()),
+        SliverToBoxAdapter(child: _filters(library)),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 18, 0, 12),
+            padding: const EdgeInsets.fromLTRB(0, 16, 0, 10),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -246,7 +287,11 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
                   ),
                 ),
                 Text('${filtered.length} 项',
-                    style: Theme.of(context).textTheme.bodySmall),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    )),
               ],
             ),
           ),
@@ -259,7 +304,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
         else
           SliverList.separated(
             itemCount: visible.length,
-            separatorBuilder: (_, index) => const SizedBox(height: 10),
+            separatorBuilder: (_, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) => _TestRow(
               test: visible[index],
               selected: _selected?.id == visible[index].id,
@@ -282,8 +327,11 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   }
 
   Widget _modeSwitcher() => Container(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.border)),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
@@ -299,8 +347,12 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
       child: InkWell(
         onTap: () => _changeMode(mode),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          constraints: const BoxConstraints(minHeight: 48),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
+            color: selected ? AppColors.background : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
             border: Border(
               bottom: BorderSide(
                 color: selected ? AppColors.accent : Colors.transparent,
@@ -313,6 +365,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w700,
+              fontSize: 13,
               color: selected ? AppColors.accent : AppColors.muted,
             ),
           ),
@@ -321,14 +374,17 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
     );
   }
 
-  Widget _filters() {
+  Widget _filters(SpokenLibrary library) {
     if (_mode == LibraryMode.seasonal) {
+      int count(int part) => part == 0
+          ? library.tests.length
+          : library.tests.where((test) => test.part == part).length;
       return _horizontalChips(
           <({String label, int value})>[
-            (label: '全部', value: 0),
-            (label: 'Part 1', value: 1),
-            (label: 'Part 2', value: 2),
-            (label: 'Part 3', value: 3),
+            (label: '全部 ${count(0)}', value: 0),
+            (label: 'Part 1 · ${count(1)}', value: 1),
+            (label: 'Part 2 · ${count(2)}', value: 2),
+            (label: 'Part 3 · ${count(3)}', value: 3),
           ],
           _part,
           (value) => setState(() {
@@ -368,12 +424,16 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
           children: values
               .map((item) => Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(item.label),
-                      selected: selected == item.value,
-                      onSelected: (_) => onSelected(item.value),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: ChoiceChip(
+                        label: Text(item.label),
+                        selected: selected == item.value,
+                        showCheckmark: false,
+                        onSelected: (_) => onSelected(item.value),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ))
               .toList(),
@@ -404,32 +464,33 @@ class _TestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: AppColors.background,
+        color: selected ? AppColors.accentSoft : AppColors.background,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(
             color: selected ? AppColors.accent : AppColors.border,
-            width: selected ? 2 : 1,
+            width: 1,
           ),
         ),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                  width: 48,
+                  height: 34,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: AppColors.accentSoft,
-                    borderRadius: BorderRadius.circular(6),
+                    color: selected ? AppColors.background : AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    test.part == null ? 'TEST' : 'P${test.part}',
-                    style: const TextStyle(
-                      color: AppColors.accent,
+                    test.part == null ? 'TEST' : 'Part ${test.part}',
+                    style: TextStyle(
+                      color: selected ? AppColors.accent : AppColors.muted,
                       fontFamily: 'monospace',
                       fontWeight: FontWeight.w800,
                       fontSize: 11,
@@ -449,7 +510,9 @@ class _TestRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        test.bookName,
+                        test.part == null
+                            ? test.bookName
+                            : '${test.bookName} · 话题练习',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall,
@@ -457,10 +520,9 @@ class _TestRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  selected ? Icons.check_circle : Icons.chevron_right,
-                  color: selected ? AppColors.accent : AppColors.muted,
-                ),
+                Icon(Icons.chevron_right,
+                    size: 20,
+                    color: selected ? AppColors.accent : AppColors.muted),
               ],
             ),
           ),
