@@ -557,7 +557,7 @@ class _AnswerCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+                    padding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
                     decoration: const BoxDecoration(
                       color: AppColors.background,
                       border: Border(
@@ -569,15 +569,16 @@ class _AnswerCard extends StatelessWidget {
                     child: Row(
                       children: [
                         ScoreBadge(answer.result.score),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => context.push(
                             '/feedback/${answer.result.recordId}/${answer.result.detailId}?from=practice',
                           ),
-                          child: const Text(
-                            '查看评分详情',
-                            style: TextStyle(fontSize: 12),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.muted,
+                            textStyle: const TextStyle(fontSize: 12),
                           ),
+                          child: const Text('查看评分详情'),
                         ),
                         const Spacer(),
                         AudioAction(

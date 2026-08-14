@@ -139,16 +139,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                   icon: const Icon(Icons.ios_share_outlined, size: 21),
                 ),
               ],
-        bottom: _evaluation == null
-            ? null
-            : FilledButton.icon(
-                onPressed: () => _copy(_improvementText(), '本题改进清单已复制'),
-                icon: const Icon(Icons.copy, size: 18),
-                label: const Text('复制本题改进清单'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(52),
-                ),
-              ),
         body: _body(),
       );
 
@@ -313,7 +303,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     return switch (_metric) {
       FeedbackMetric.pronunciation => _feedbackSection(
           title: '发音反馈',
-          score: ai?.pronunciationScore ?? detail.pronunciationScore,
           summary: ai?.pronunciationSummary ?? '基础发音评分已生成，AI 深度总结正在准备。',
           children: [
             _pronunciationWords(
@@ -351,7 +340,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         ),
       FeedbackMetric.fluency => _feedbackSection(
           title: '流利度与连贯性',
-          score: ai?.fluencyScore ?? detail.fluencyScore,
           summary: ai?.fluencySummary ?? 'AI 深度总结正在准备。',
           children: [
             _insight('表现亮点', ai?.fluencyStrengths),
@@ -360,7 +348,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         ),
       FeedbackMetric.vocabulary => _feedbackSection(
           title: '词汇反馈',
-          score: ai?.lexicalScore ?? detail.lexicalScore,
           summary: ai?.lexicalSummary ?? 'AI 深度总结正在准备。',
           children: [
             _dynamicSection('亮点表达', ai?.lexicalStrongExpressions),
@@ -369,7 +356,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         ),
       FeedbackMetric.grammar => _feedbackSection(
           title: '语法反馈',
-          score: ai?.grammarScore ?? detail.grammarScore,
           summary: ai?.grammarSummary ?? 'AI 深度总结正在准备。',
           children: [
             _dynamicSection('已使用的语法结构', ai?.grammarStructures),
@@ -381,21 +367,13 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
   Widget _feedbackSection({
     required String title,
-    required double? score,
     required String summary,
     required List<Widget> children,
   }) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                  child: Text(title,
-                      style: Theme.of(context).textTheme.titleLarge)),
-              ScoreBadge(score, pill: false),
-            ],
-          ),
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 10),
           Card(
             child: Padding(
@@ -574,18 +552,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         '相关性 ${ai?.relevance ?? detail.relevance ?? '—'}% · '
         '${ai?.speed ?? detail.speed ?? '—'} 词/分钟 · '
         '${ai?.wordCount ?? detail.wordCount ?? '—'} 词';
-  }
-
-  String _improvementText() {
-    final ai = _evaluation;
-    if (ai == null) return _summaryText();
-    return [
-      _summaryText(),
-      '流利度：${ai.fluencyImprovements}',
-      '词汇：${_asList(ai.lexicalImprovements).map((item) => _readableItem(item, 0)).join('；')}',
-      '语法：${_asList(ai.grammarCorrections).map((item) => _readableItem(item, 0)).join('；')}',
-      '优化回答：${ai.improvedAnswerText}',
-    ].join('\n');
   }
 }
 

@@ -120,16 +120,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '口语练习轨迹',
-                      style: TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
                     Text(
                       '每一次开口，\n都算作进步。',
                       style: Theme.of(context).textTheme.headlineMedium,
@@ -268,7 +258,7 @@ class _RecordRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        '${DateFormat('HH:mm').format(record.createAt)}  ·  查看完整问答与评分',
+                        '口语完整练习  ·  ${DateFormat('HH:mm').format(record.createAt)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall,

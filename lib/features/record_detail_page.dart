@@ -215,7 +215,7 @@ class _DetailExchange extends StatelessWidget {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+                          padding: const EdgeInsets.fromLTRB(18, 8, 8, 8),
                           decoration: const BoxDecoration(
                             color: AppColors.background,
                             border: Border(
@@ -228,15 +228,16 @@ class _DetailExchange extends StatelessWidget {
                           child: Row(
                             children: [
                               ScoreBadge(detail.overallScore),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 8),
                               TextButton(
                                 onPressed: () => context.push(
                                   '/feedback/${detail.recordId}/${detail.id}?from=history',
                                 ),
-                                child: const Text(
-                                  '查看反馈',
-                                  style: TextStyle(fontSize: 12),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.muted,
+                                  textStyle: const TextStyle(fontSize: 12),
                                 ),
+                                child: const Text('查看反馈'),
                               ),
                               const Spacer(),
                               AudioAction(

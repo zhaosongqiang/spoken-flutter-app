@@ -8,6 +8,7 @@ abstract final class AppColors {
   static const muted = Color(0xFF6B7280);
   static const border = Color(0xFFD9DEE7);
   static const accent = Color(0xFF1677FF);
+  static const accentHover = Color(0xFF0958D9);
   static const accentSoft = Color(0xFFEDF4FF);
   static const danger = Color(0xFFD4380D);
   static const success = Color(0xFF178553);

@@ -31,7 +31,9 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   final TextEditingController _searchController = TextEditingController();
   late Future<_Libraries> _libraries;
   LibraryMode _mode = LibraryMode.seasonal;
-  TestItem? _selected;
+  TestItem? _seasonalSelected;
+  TestItem? _cambridgeSelected;
+  bool _loadingMore = false;
   String _search = '';
   int _part = 0;
   int _bookMin = 9;
@@ -41,43 +43,84 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   @override
   void initState() {
     super.initState();
-    _libraries = _load();
-    _restorePreferences();
+    _libraries = _initialize();
+  }
+
+  TestItem? get _selected =>
+      _mode == LibraryMode.seasonal ? _seasonalSelected : _cambridgeSelected;
+
+  Future<_Libraries> _initialize() async {
+    await _restorePreferences();
+    return _load();
   }
 
   Future<_Libraries> _load() async {
     final api = await ref.read(spokenApiProvider.future);
     final seasonal = api.currentSeasonTests();
     final cambridge = api.cambridgeTests();
-    return _Libraries(await seasonal, await cambridge);
+    final result = _Libraries(await seasonal, await cambridge);
+    if (mounted && (_seasonalSelected == null || _cambridgeSelected == null)) {
+      setState(() {
+        if (_seasonalSelected == null && result.seasonal.tests.isNotEmpty) {
+          _seasonalSelected = result.seasonal.tests.first;
+        }
+        if (_cambridgeSelected == null && result.cambridge.tests.isNotEmpty) {
+          _cambridgeSelected = _defaultCambridgeTest(result.cambridge.tests);
+        }
+      });
+    }
+    return result;
   }
 
   Future<void> _restorePreferences() async {
     final preferences = await SharedPreferences.getInstance();
     final storedMode = preferences.getString('spokenLibraryMode');
-    final rawSelection = preferences.getString('spokenSelectedTest');
+    final rawSeasonal = preferences.getString('spokenSelectedSeasonal');
+    final rawCambridge = preferences.getString('spokenSelectedCambridge');
+    final legacySelection = preferences.getString('spokenSelectedTest');
     if (!mounted) return;
     setState(() {
       _mode = storedMode == 'cambridge'
           ? LibraryMode.cambridge
           : LibraryMode.seasonal;
-      if (rawSelection != null) {
-        try {
-          _selected = TestItem.fromJson(
-            Map<String, dynamic>.from(jsonDecode(rawSelection) as Map),
-          );
-        } catch (_) {
-          _selected = null;
-        }
+      _seasonalSelected = _decodeSelection(rawSeasonal);
+      _cambridgeSelected = _decodeSelection(rawCambridge);
+      final legacy = _decodeSelection(legacySelection);
+      if (legacy?.part == null) {
+        _cambridgeSelected ??= legacy;
+      } else {
+        _seasonalSelected ??= legacy;
       }
     });
   }
 
   Future<void> _choose(TestItem test) async {
-    setState(() => _selected = test);
+    setState(() {
+      if (_mode == LibraryMode.seasonal) {
+        _seasonalSelected = test;
+      } else {
+        _cambridgeSelected = test;
+      }
+    });
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-        'spokenSelectedTest', jsonEncode(test.toJson()));
+    final encoded = jsonEncode(test.toJson());
+    await Future.wait([
+      preferences.setString('spokenSelectedTest', encoded),
+      preferences.setString(
+        _mode == LibraryMode.seasonal
+            ? 'spokenSelectedSeasonal'
+            : 'spokenSelectedCambridge',
+        encoded,
+      ),
+    ]);
+  }
+
+  Future<void> _activate(TestItem test) async {
+    if (_selected?.id == test.id) {
+      _start();
+      return;
+    }
+    await _choose(test);
   }
 
   Future<void> _changeMode(LibraryMode mode) async {
@@ -110,48 +153,31 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
 
   @override
   Widget build(BuildContext context) => AppFrame(
-        bottom: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.check_circle_outline,
-                    size: 16, color: AppColors.muted),
-                const SizedBox(width: 7),
+        bottomPadding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+        bottom: SizedBox(
+          height: 24,
+          child: Row(
+            children: [
+              Text(
+                _selected == null ? '点击练习进行选择' : '再次点击进入',
+                style: const TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+              if (_selected != null) ...[
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text.rich(
-                    TextSpan(
-                      text: _selected == null ? '请先选择一项练习' : '已选  ',
-                      children: _selected == null
-                          ? null
-                          : [
-                              TextSpan(
-                                text: _selectionTitle(_selected!),
-                                style: const TextStyle(
-                                  color: AppColors.foreground,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                    ),
+                  child: Text(
+                    _selectionTitle(_selected!),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppColors.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: _selected == null ? null : _start,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-              ),
-              child: Text(_mode == LibraryMode.seasonal ? '开始话题练习' : '开始完整练习'),
-            ),
-          ],
+            ],
+          ),
         ),
         body: FutureBuilder<_Libraries>(
           future: _libraries,
@@ -177,152 +203,186 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
         ? libraries.seasonal
         : libraries.cambridge;
     final query = _search.trim().toLowerCase();
-    final filtered = library.tests.where((test) {
+    final seasonalResults = libraries.seasonal.tests.where((test) {
       final matchesSearch = query.isEmpty ||
-          '${test.bookName} ${test.name} ${test.displayName}'
+          '${test.name} ${test.displayName}'.toLowerCase().contains(query);
+      return matchesSearch && (_part == 0 || test.part == _part);
+    }).toList();
+    final visibleSeasonal = seasonalResults.take(_visible).toList();
+    final normalizedQuery = query.replaceAll(RegExp(r'\s'), '');
+    final cambridgeBooks = libraries.cambridge.books.where((book) {
+      final bookNumber = _bookNumber(book.bookName);
+      final matchesSearch = normalizedQuery.isEmpty ||
+          '${book.bookName}cambridge$bookNumber'
               .toLowerCase()
-              .contains(query);
-      if (_mode == LibraryMode.seasonal) {
-        return matchesSearch && (_part == 0 || test.part == _part);
-      }
-      final bookNumber = _bookNumber(test.bookName);
+              .replaceAll(RegExp(r'\s'), '')
+              .contains(normalizedQuery);
       return matchesSearch && bookNumber >= _bookMin && bookNumber <= _bookMax;
     }).toList();
-    final visible = filtered.take(_visible).toList();
+    final hasResults = _mode == LibraryMode.seasonal
+        ? seasonalResults.isNotEmpty
+        : cambridgeBooks.isNotEmpty;
 
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Eyebrow('IELTS SPEAKING'),
-                      const SizedBox(height: 4),
-                      Text('选择今天的练习',
-                          style: Theme.of(context).textTheme.headlineLarge),
-                    ],
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (_mode == LibraryMode.seasonal &&
+            notification.metrics.axis == Axis.vertical &&
+            notification.metrics.extentAfter < 80) {
+          _loadMoreSeasonal(seasonalResults.length);
+        }
+        return false;
+      },
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 12, 0, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Eyebrow('IELTS SPEAKING'),
+                        const SizedBox(height: 4),
+                        Text('选择今天的练习',
+                            style: Theme.of(context).textTheme.headlineLarge),
+                      ],
+                    ),
                   ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => context.go('/history'),
-                  icon: const Icon(Icons.history, size: 19),
-                  label: const Text('练习记录', style: TextStyle(fontSize: 12)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 11),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go('/history'),
+                    icon: const Icon(Icons.history, size: 19),
+                    label: const Text('练习记录', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 11),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.only(top: 10, bottom: 18),
-            child: Text(
-              '练当季高频话题，或按册完成剑雅口语真题。选择会自动保留。',
-              style: TextStyle(color: AppColors.muted, height: 1.6),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(child: _modeSwitcher()),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() {
-                _search = value;
-                _visible = pageSize;
-              }),
-              decoration: InputDecoration(
-                hintText: '搜索话题、册数或 Test',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _search.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清空搜索',
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _search = '';
-                            _visible = pageSize;
-                          });
-                        },
-                        icon: const Icon(Icons.close, size: 18),
-                      ),
-                isDense: true,
+                ],
               ),
             ),
           ),
-        ),
-        SliverToBoxAdapter(child: _filters(library)),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 16, 0, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _mode == LibraryMode.seasonal ? '当季口语题库练习' : '刷剑雅真题',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _mode == LibraryMode.seasonal
-                            ? '按话题单独练习'
-                            : '剑雅 9–21 · 完整 Part 1–3',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
+          SliverToBoxAdapter(child: _modeSwitcher()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() {
+                  _search = value;
+                  _visible = pageSize;
+                }),
+                decoration: InputDecoration(
+                  hintText:
+                      _mode == LibraryMode.seasonal ? '搜索当季话题' : '搜索剑雅册数，例如 16',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _search.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '清空搜索',
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _search = '';
+                              _visible = pageSize;
+                            });
+                          },
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                  isDense: true,
                 ),
-                Text('${filtered.length} 项',
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(child: _filters(library)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _mode == LibraryMode.seasonal ? '当季口语题库练习' : '刷剑雅真题',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          _mode == LibraryMode.seasonal
+                              ? '按话题单独练习'
+                              : '剑雅 9–21 · 每册 4 套 Test',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    _mode == LibraryMode.seasonal
+                        ? '${seasonalResults.length} 题'
+                        : '${cambridgeBooks.length} 册',
                     style: const TextStyle(
                       color: AppColors.muted,
                       fontFamily: 'monospace',
                       fontSize: 12,
-                    )),
-              ],
-            ),
-          ),
-        ),
-        if (visible.isEmpty)
-          const SliverFillRemaining(
-            hasScrollBody: false,
-            child: StatePanel(title: '没有匹配的练习', description: '换个关键词或清空筛选后再试。'),
-          )
-        else
-          SliverList.separated(
-            itemCount: visible.length,
-            separatorBuilder: (_, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => _TestRow(
-              test: visible[index],
-              selected: _selected?.id == visible[index].id,
-              onTap: () => _choose(visible[index]),
-            ),
-          ),
-        if (_visible < filtered.length)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: OutlinedButton(
-                onPressed: () => setState(() => _visible += pageSize),
-                child: const Text('加载更多'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-      ],
+          if (!hasResults)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: StatePanel(
+                title: '没有匹配的练习',
+                description: '换个关键词或清空筛选后再试。',
+              ),
+            )
+          else if (_mode == LibraryMode.seasonal)
+            SliverList.separated(
+              itemCount: visibleSeasonal.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) => _TestRow(
+                test: visibleSeasonal[index],
+                selected: _selected?.id == visibleSeasonal[index].id,
+                onTap: () => _activate(visibleSeasonal[index]),
+              ),
+            )
+          else
+            SliverList.separated(
+              itemCount: cambridgeBooks.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) => _CambridgeBookCard(
+                key: ValueKey(cambridgeBooks[index].bookId),
+                book: cambridgeBooks[index],
+                selectedId: _selected?.id,
+                initiallyExpanded: index < 2 ||
+                    cambridgeBooks[index]
+                        .tests
+                        .any((test) => test.id == _selected?.id),
+                onTestTap: _activate,
+              ),
+            ),
+          if (_mode == LibraryMode.seasonal && seasonalResults.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 10, 0, 2),
+                child: Text(
+                  _visible < seasonalResults.length
+                      ? '已显示 ${visibleSeasonal.length} 题，继续向下滑动自动加载'
+                      : '已显示全部 ${seasonalResults.length} 题',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
+      ),
     );
   }
 
@@ -443,6 +503,34 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   int _bookNumber(String value) =>
       int.tryParse(RegExp(r'\d+').firstMatch(value)?.group(0) ?? '') ?? 0;
 
+  void _loadMoreSeasonal(int total) {
+    if (_loadingMore || _visible >= total) return;
+    _loadingMore = true;
+    setState(() => _visible += pageSize);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadingMore = false;
+    });
+  }
+
+  TestItem? _decodeSelection(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map
+          ? TestItem.fromJson(Map<String, dynamic>.from(decoded))
+          : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  TestItem _defaultCambridgeTest(List<TestItem> tests) {
+    for (final test in tests) {
+      if (_bookNumber(test.bookName) == 16 && test.testNo == 2) return test;
+    }
+    return tests.first;
+  }
+
   String _selectionTitle(TestItem test) {
     if (_mode == LibraryMode.seasonal) {
       return '${test.bookName} · Part ${test.part ?? '—'} · ${test.name}';
@@ -526,6 +614,191 @@ class _TestRow extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      );
+}
+
+class _CambridgeBookCard extends StatefulWidget {
+  const _CambridgeBookCard({
+    required this.book,
+    required this.selectedId,
+    required this.initiallyExpanded,
+    required this.onTestTap,
+    super.key,
+  });
+
+  final BookGroup book;
+  final int? selectedId;
+  final bool initiallyExpanded;
+  final ValueChanged<TestItem> onTestTap;
+
+  @override
+  State<_CambridgeBookCard> createState() => _CambridgeBookCardState();
+}
+
+class _CambridgeBookCardState extends State<_CambridgeBookCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  int get _bookNumber =>
+      int.tryParse(
+        RegExp(r'\d+').firstMatch(widget.book.bookName)?.group(0) ?? '',
+      ) ??
+      0;
+
+  @override
+  void didUpdateWidget(covariant _CambridgeBookCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final selectedInBook =
+        widget.book.tests.any((test) => test.id == widget.selectedId);
+    if (selectedInBook && oldWidget.selectedId != widget.selectedId) {
+      _expanded = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: AppColors.background,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 60),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.foreground,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$_bookNumber',
+                        style: const TextStyle(
+                          color: AppColors.background,
+                          fontFamily: 'monospace',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.book.bookName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '完整 Part 1–3 · ${widget.book.tests.length} 套 Test',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _expanded ? .5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 180),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 2, 14, 14),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: widget.book.tests.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    mainAxisExtent: 52,
+                  ),
+                  itemBuilder: (context, index) {
+                    final test = widget.book.tests[index];
+                    final selected = test.id == widget.selectedId;
+                    return Material(
+                      color: selected
+                          ? AppColors.accentSoft
+                          : AppColors.background,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: selected ? AppColors.accent : AppColors.border,
+                        ),
+                      ),
+                      child: InkWell(
+                        onTap: () => widget.onTestTap(test),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 3),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Test ${test.testNo ?? index + 1}',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: selected
+                                      ? AppColors.accent
+                                      : AppColors.foreground,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Part 1–3',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: AppColors.muted,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       );
 }

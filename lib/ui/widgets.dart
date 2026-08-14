@@ -224,17 +224,17 @@ class ScoreBadge extends StatelessWidget {
       );
     }
     return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.foreground,
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
         textAlign: TextAlign.center,
         style: const TextStyle(
-          color: AppColors.background,
+          color: AppColors.muted,
           fontFamily: 'monospace',
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -285,11 +285,12 @@ class AudioAction extends ConsumerWidget {
               onPressed: url.isEmpty ? null : toggle,
               style: IconButton.styleFrom(
                 minimumSize: const Size(44, 44),
-                foregroundColor:
-                    playing ? AppColors.background : AppColors.accent,
+                fixedSize: const Size(44, 44),
+                foregroundColor: AppColors.background,
                 backgroundColor:
-                    playing ? AppColors.foreground : Colors.transparent,
-                disabledForegroundColor: AppColors.border,
+                    playing ? AppColors.accentHover : AppColors.accent,
+                disabledForegroundColor: AppColors.background,
+                disabledBackgroundColor: AppColors.border,
               ),
               icon:
                   Icon(playing ? Icons.stop_rounded : Icons.play_arrow_rounded),
