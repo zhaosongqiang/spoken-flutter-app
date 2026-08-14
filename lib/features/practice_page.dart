@@ -31,10 +31,13 @@ class PracticePage extends ConsumerStatefulWidget {
 
 class _PracticePageState extends ConsumerState<PracticePage> {
   static const double _cardGap = 10;
+  static const Duration _questionAudioDelay = Duration(milliseconds: 300);
 
   late Future<SpokenQuestions> _questions;
   late final VoiceRecorder _recorder;
   final ScrollController _scrollController = ScrollController();
+  Timer? _questionAudioTimer;
+  int? _presentedQuestionId;
   int _index = 0;
   bool _assessing = false;
   String? _assessmentError;
@@ -55,6 +58,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         oldWidget.part == widget.part) {
       return;
     }
+    _questionAudioTimer?.cancel();
+    _presentedQuestionId = null;
     _index = 0;
     _assessmentError = null;
     _questions = _load();
@@ -80,6 +85,45 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
   void _recorderChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _scheduleQuestionAudio(QuestionItem question) {
+    if (_presentedQuestionId == question.id) return;
+    _presentedQuestionId = question.id;
+    _questionAudioTimer?.cancel();
+    if (question.audioUrl.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _presentedQuestionId != question.id) return;
+      _questionAudioTimer = Timer(
+        _questionAudioDelay,
+        () => unawaited(_autoPlayQuestionAudio(question)),
+      );
+    });
+  }
+
+  Future<void> _autoPlayQuestionAudio(QuestionItem question) async {
+    if (!mounted ||
+        _presentedQuestionId != question.id ||
+        _recorder.status == VoiceRecorderStatus.recording ||
+        _assessing) {
+      return;
+    }
+    final audioKey = 'question-${question.id}';
+    final service = ref.read(audioServiceProvider);
+    if (service.activeKey == audioKey) return;
+    try {
+      await service.playUrl(audioKey, question.audioUrl);
+    } catch (_) {
+      if (mounted && _presentedQuestionId == question.id) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('题目音频自动播放失败，请点击播放按钮重试。'),
+            ),
+          );
+      }
+    }
   }
 
   Future<void> _toggleRecording(QuestionItem question) async {
@@ -180,6 +224,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
   @override
   void dispose() {
+    _questionAudioTimer?.cancel();
     _recorder.removeListener(_recorderChanged);
     _recorder.dispose();
     _scrollController.dispose();
@@ -226,6 +271,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
   Widget _content(SpokenQuestions data, List<QuestionItem> questions) {
     final question = questions[_index];
+    _scheduleQuestionAudio(question);
     final session = ref.watch(practiceSessionProvider);
     final currentAnswer = session.answers
         .where((answer) => answer.question.id == question.id)

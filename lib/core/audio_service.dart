@@ -25,6 +25,11 @@ class AppAudioService {
       await stop();
       return;
     }
+    await playUrl(key, url);
+  }
+
+  Future<void> playUrl(String key, String url) async {
+    if (url.isEmpty) throw StateError('音频地址为空');
     await _player.stop();
     _activeKey = key;
     await _player.setUrl(url);
