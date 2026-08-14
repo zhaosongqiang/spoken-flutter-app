@@ -33,7 +33,7 @@ Web 浏览器可能忽略录音时请求的 16kHz 采样率并输出 48kHz。客
 flutter analyze
 flutter test
 flutter test --platform chrome test/wav_pcm16_test.dart
-flutter build web --release --dart-define=API_BASE_URL=http://localhost:8080
+flutter build web --release --dart-define=API_BASE_URL=http://192.168.0.62:8080
 flutter build ios --simulator --dart-define=API_BASE_URL=http://localhost:8080
 ```
 
