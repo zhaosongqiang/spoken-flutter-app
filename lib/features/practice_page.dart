@@ -30,6 +30,8 @@ class PracticePage extends ConsumerStatefulWidget {
 }
 
 class _PracticePageState extends ConsumerState<PracticePage> {
+  static const double _cardGap = 10;
+
   late Future<SpokenQuestions> _questions;
   late final VoiceRecorder _recorder;
   final ScrollController _scrollController = ScrollController();
@@ -308,12 +310,12 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                 for (final answer in session.answers
                     .where((item) => item.question.id != question.id)) ...[
                   _QuestionCard(question: answer.question, compact: true),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: _cardGap),
                   _AnswerCard(answer: answer),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: _cardGap),
                 ],
                 _QuestionCard(question: question),
-                const SizedBox(height: 10),
+                const SizedBox(height: _cardGap),
                 if (_assessing)
                   const _AssessmentState()
                 else if (currentAnswer != null)
