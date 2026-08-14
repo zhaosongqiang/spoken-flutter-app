@@ -150,7 +150,17 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     }
   }
 
-  void _next(int length) {
+  void _next(int length, {required bool answered}) {
+    if (!answered) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('请先回答当前题目，完成评分后才能进入下一题。'),
+          ),
+        );
+      return;
+    }
     if (_index < length - 1) {
       setState(() {
         _index += 1;
@@ -425,7 +435,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                                 : () => context.push(
                                       '/feedback/${currentAnswer.result.recordId}/${currentAnswer.result.detailId}?from=practice',
                                     )
-                            : () => _next(questionCount),
+                            : () => _next(
+                                  questionCount,
+                                  answered: currentAnswer != null,
+                                ),
                     child: Text(
                       atLast
                           ? currentAnswer == null
@@ -482,9 +495,13 @@ class _QuestionCard extends StatelessWidget {
             Card(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
-                    compact ? 14 : 18, 16, 10, compact ? 10 : 12),
+                  compact ? 14 : 18,
+                  12,
+                  10,
+                  12,
+                ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: Text(

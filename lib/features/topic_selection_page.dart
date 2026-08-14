@@ -153,32 +153,6 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
 
   @override
   Widget build(BuildContext context) => AppFrame(
-        bottomPadding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
-        bottom: SizedBox(
-          height: 24,
-          child: Row(
-            children: [
-              Text(
-                _selected == null ? '点击练习进行选择' : '再次点击进入',
-                style: const TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-              if (_selected != null) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _selectionTitle(_selected!),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
         body: FutureBuilder<_Libraries>(
           future: _libraries,
           builder: (context, snapshot) {
@@ -529,13 +503,6 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
       if (_bookNumber(test.bookName) == 16 && test.testNo == 2) return test;
     }
     return tests.first;
-  }
-
-  String _selectionTitle(TestItem test) {
-    if (_mode == LibraryMode.seasonal) {
-      return '${test.bookName} · Part ${test.part ?? '—'} · ${test.name}';
-    }
-    return '${test.bookName} · ${test.name}';
   }
 }
 

@@ -1,17 +1,27 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:just_audio/just_audio.dart';
 
 class AppAudioService {
+  AppAudioService() {
+    _completionSubscription = _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) _activeKey = null;
+    });
+  }
+
   final AudioPlayer _player = AudioPlayer();
   String? _activeKey;
+  late final StreamSubscription<ProcessingState> _completionSubscription;
 
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
   String? get activeKey => _activeKey;
 
   Future<void> toggleUrl(String key, String url) async {
     if (url.isEmpty) throw StateError('音频地址为空');
-    if (_activeKey == key && _player.playing) {
+    if (_activeKey == key &&
+        _player.playing &&
+        _player.processingState != ProcessingState.completed) {
       await stop();
       return;
     }
@@ -36,7 +46,10 @@ class AppAudioService {
     _activeKey = null;
   }
 
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    await _completionSubscription.cancel();
+    await _player.dispose();
+  }
 }
 
 // just_audio currently exposes in-memory playback through this experimental API.

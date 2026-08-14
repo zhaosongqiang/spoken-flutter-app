@@ -264,8 +264,10 @@ class AudioAction extends ConsumerWidget {
     return StreamBuilder<PlayerState>(
       stream: service.playerStateStream,
       builder: (context, snapshot) {
-        final playing =
-            service.activeKey == audioKey && (snapshot.data?.playing ?? false);
+        final state = snapshot.data;
+        final playing = service.activeKey == audioKey &&
+            (state?.playing ?? false) &&
+            state?.processingState != ProcessingState.completed;
         Future<void> toggle() async {
           try {
             await service.toggleUrl(audioKey, url);
