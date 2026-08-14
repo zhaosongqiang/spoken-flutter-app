@@ -463,15 +463,15 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
           children: [
             _PronunciationLegendItem(
               color: Color(0xFF5BAE5F),
-              label: '80–100 清晰',
+              label: '清晰',
             ),
             _PronunciationLegendItem(
               color: Color(0xFFDDB049),
-              label: '60–79 一般',
+              label: '一般',
             ),
             _PronunciationLegendItem(
               color: Color(0xFFEC5B57),
-              label: '0–59 需改进',
+              label: '需改进',
             ),
           ],
         ),
