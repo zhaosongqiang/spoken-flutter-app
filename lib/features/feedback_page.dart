@@ -129,6 +129,33 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     context.go('/history/${widget.recordId}');
   }
 
+  Future<void> _openFeedbackSheet() async {
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.background,
+      constraints: const BoxConstraints(maxWidth: 480),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      builder: (context) => _FeedbackSubmissionSheet(
+        onSubmit: (content) async {
+          final api = await ref.read(spokenApiProvider.future);
+          await api.submitFeedback(
+            detailId: widget.detailId,
+            content: content,
+          );
+        },
+      ),
+    );
+    if (submitted == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('反馈已提交，感谢你的建议')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AppFrame(
         title: '评测反馈',
@@ -219,6 +246,21 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
             ),
           ),
         ],
+        const SizedBox(height: 24),
+        const Divider(height: 1),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: _openFeedbackSheet,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              side: const BorderSide(color: AppColors.border),
+              textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            child: const Text('我要反馈'),
+          ),
+        ),
         const SizedBox(height: 30),
       ],
     );
@@ -753,6 +795,192 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         '${ai?.speed ?? detail.speed ?? '—'} 词/分钟 · '
         '${ai?.wordCount ?? detail.wordCount ?? '—'} 词';
   }
+}
+
+class _FeedbackSubmissionSheet extends StatefulWidget {
+  const _FeedbackSubmissionSheet({required this.onSubmit});
+
+  final Future<void> Function(String content) onSubmit;
+
+  @override
+  State<_FeedbackSubmissionSheet> createState() =>
+      _FeedbackSubmissionSheetState();
+}
+
+class _FeedbackSubmissionSheetState extends State<_FeedbackSubmissionSheet> {
+  static const _maxLength = 500;
+
+  final _controller = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) {
+      setState(() => _error = '请输入反馈内容');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await widget.onSubmit(content);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = '提交失败：$error';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+        canPop: !_submitting,
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 48,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Text(
+                        '提交反馈',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          tooltip: '关闭反馈',
+                          onPressed: _submitting
+                              ? null
+                              : () => Navigator.of(context).pop(false),
+                          icon: const Icon(Icons.close, size: 22),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  '反馈任何错误反馈或者建议，帮助我们更好地优化服务',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                    height: 1.55,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '反馈内容',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 7),
+                TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  enabled: !_submitting,
+                  minLines: 5,
+                  maxLines: 8,
+                  maxLength: _maxLength,
+                  buildCounter: (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) =>
+                      null,
+                  decoration: InputDecoration(
+                    hintText: '请描述你发现的问题或建议',
+                    errorText: null,
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: _error == null
+                            ? AppColors.border
+                            : AppColors.foreground,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      if (value.trim().isNotEmpty) _error = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _error ?? '',
+                        style: const TextStyle(
+                          color: AppColors.foreground,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_controller.text.length} / $_maxLength',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('提交中…'),
+                            ],
+                          )
+                        : const Text('提交反馈'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _PronunciationLegendItem extends StatelessWidget {
