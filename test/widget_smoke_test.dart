@@ -59,6 +59,7 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(container.read(practiceSessionProvider).testId, 60);
-    expect(find.text('正在加载练习题目'), findsOneWidget);
+    expect(find.textContaining('正在加载'), findsNothing);
+    expect(find.byType(ContentPlaceholder), findsOneWidget);
   });
 }

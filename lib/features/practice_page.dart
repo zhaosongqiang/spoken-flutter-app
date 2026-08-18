@@ -16,6 +16,7 @@ class PracticePage extends ConsumerStatefulWidget {
     required this.testId,
     required this.mode,
     required this.part,
+    this.initialQuestions,
     this.initialTitle,
     super.key,
   });
@@ -23,6 +24,7 @@ class PracticePage extends ConsumerStatefulWidget {
   final int testId;
   final String mode;
   final int? part;
+  final SpokenQuestions? initialQuestions;
   final String? initialTitle;
 
   @override
@@ -46,7 +48,9 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   void initState() {
     super.initState();
     _recorder = VoiceRecorder()..addListener(_recorderChanged);
-    _questions = _load();
+    _questions = widget.initialQuestions == null
+        ? _load()
+        : Future<SpokenQuestions>.value(widget.initialQuestions!);
     _scheduleSessionBegin(widget.initialTitle ?? '口语练习');
   }
 
@@ -62,7 +66,9 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     _presentedQuestionId = null;
     _index = 0;
     _assessmentError = null;
-    _questions = _load();
+    _questions = widget.initialQuestions == null
+        ? _load()
+        : Future<SpokenQuestions>.value(widget.initialQuestions!);
     _scheduleSessionBegin(widget.initialTitle ?? '口语练习');
   }
 
@@ -233,42 +239,48 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<SpokenQuestions>(
-        future: _questions,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const AppFrame(
-                body: StatePanel(title: '正在加载练习题目', loading: true));
-          }
-          if (snapshot.hasError) {
-            return AppFrame(
-              body: StatePanel(
-                title: '题目暂时无法加载',
-                description: snapshot.error.toString(),
-                action: '重新加载',
-                onAction: () => setState(() => _questions = _load()),
-              ),
-            );
-          }
-          final data = snapshot.requireData;
-          final questions = [...data.questions]..sort((a, b) {
-              final byPart = a.part.compareTo(b.part);
-              return byPart != 0 ? byPart : a.seqNo.compareTo(b.seqNo);
-            });
-          if (questions.isEmpty) {
-            return AppFrame(
-              body: StatePanel(
-                title: '当前练习没有题目',
-                description: '请返回题库选择其他练习。',
-                action: '返回题库',
-                onAction: () => goBackOr(context, '/'),
-              ),
-            );
-          }
-          if (_index >= questions.length) _index = questions.length - 1;
-          return _content(data, questions);
-        },
+  Widget build(BuildContext context) {
+    final initialQuestions = widget.initialQuestions;
+    if (initialQuestions != null) return _questionsContent(initialQuestions);
+    return FutureBuilder<SpokenQuestions>(
+      future: _questions,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const AppFrame(body: ContentPlaceholder());
+        }
+        if (snapshot.hasError) {
+          return AppFrame(
+            body: StatePanel(
+              title: '题目暂时无法加载',
+              description: snapshot.error.toString(),
+              action: '重新加载',
+              onAction: () => setState(() => _questions = _load()),
+            ),
+          );
+        }
+        return _questionsContent(snapshot.requireData);
+      },
+    );
+  }
+
+  Widget _questionsContent(SpokenQuestions data) {
+    final questions = [...data.questions]..sort((a, b) {
+        final byPart = a.part.compareTo(b.part);
+        return byPart != 0 ? byPart : a.seqNo.compareTo(b.seqNo);
+      });
+    if (questions.isEmpty) {
+      return AppFrame(
+        body: StatePanel(
+          title: '当前练习没有题目',
+          description: '请返回题库选择其他练习。',
+          action: '返回题库',
+          onAction: () => goBackOr(context, '/'),
+        ),
       );
+    }
+    if (_index >= questions.length) _index = questions.length - 1;
+    return _content(data, questions);
+  }
 
   Widget _content(SpokenQuestions data, List<QuestionItem> questions) {
     final question = questions[_index];

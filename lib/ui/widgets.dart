@@ -203,6 +203,40 @@ class StatePanel extends StatelessWidget {
       );
 }
 
+class ContentPlaceholder extends StatelessWidget {
+  const ContentPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+        child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 18),
+            FractionallySizedBox(
+              widthFactor: 0.58,
+              alignment: Alignment.centerLeft,
+              child: _block(28),
+            ),
+            const SizedBox(height: 18),
+            _block(92),
+            const SizedBox(height: 10),
+            _block(132),
+            const SizedBox(height: 10),
+            _block(92),
+          ],
+        ),
+      );
+
+  Widget _block(double height) => Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+      );
+}
+
 class ScoreBadge extends StatelessWidget {
   const ScoreBadge(this.score, {this.pill = true, super.key});
 
@@ -320,9 +354,7 @@ class BootstrapGate extends ConsumerWidget {
     final account = ref.watch(accountBootstrapProvider);
     return account.when(
       data: (_) => child,
-      loading: () => const AppFrame(
-        body: StatePanel(title: '正在初始化试用账号', loading: true),
-      ),
+      loading: () => const AppFrame(body: ContentPlaceholder()),
       error: (error, _) => AppFrame(
         body: StatePanel(
           title: '账号初始化失败',

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models.dart';
+import '../core/navigation_data.dart';
 import '../core/providers.dart';
 import '../ui/design.dart';
 import '../ui/widgets.dart';
@@ -34,6 +35,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   TestItem? _seasonalSelected;
   TestItem? _cambridgeSelected;
   bool _loadingMore = false;
+  bool _openingPage = false;
   String _search = '';
   int _part = 0;
   int _bookMin = 9;
@@ -116,8 +118,9 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
   }
 
   Future<void> _activate(TestItem test) async {
+    if (_openingPage) return;
     if (_selected?.id == test.id) {
-      _start();
+      await _start();
       return;
     }
     await _choose(test);
@@ -134,15 +137,53 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
     await preferences.setString('spokenLibraryMode', mode.name);
   }
 
-  void _start() {
+  Future<void> _start() async {
     final selection = _selected;
-    if (selection == null) return;
+    if (selection == null || _openingPage) return;
     final mode = _mode.name;
     final part = selection.part ?? 0;
-    context.push(
-      '/practice/${selection.id}?mode=$mode&part=$part',
-      extra: selection,
-    );
+    setState(() => _openingPage = true);
+    try {
+      final api = await ref.read(spokenApiProvider.future);
+      final questions = await api.questions(
+        selection.id,
+        part: mode == LibraryMode.seasonal.name ? selection.part : null,
+      );
+      if (!mounted) return;
+      await context.push<void>(
+        '/practice/${selection.id}?mode=$mode&part=$part',
+        extra: PracticeNavigationData(
+          test: selection,
+          questions: questions,
+        ),
+      );
+    } catch (error) {
+      if (mounted) _showNavigationError('练习题目暂时无法打开', error);
+    } finally {
+      if (mounted) setState(() => _openingPage = false);
+    }
+  }
+
+  Future<void> _openHistory() async {
+    if (_openingPage) return;
+    setState(() => _openingPage = true);
+    try {
+      await ref.read(accountBootstrapProvider.future);
+      final api = await ref.read(spokenApiProvider.future);
+      final page = await api.records();
+      if (!mounted) return;
+      await context.push<void>('/history', extra: page);
+    } catch (error) {
+      if (mounted) _showNavigationError('练习记录暂时无法打开', error);
+    } finally {
+      if (mounted) setState(() => _openingPage = false);
+    }
+  }
+
+  void _showNavigationError(String message, Object error) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$message：$error')));
   }
 
   @override
@@ -157,7 +198,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
           future: _libraries,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
-              return const StatePanel(title: '正在加载口语题库', loading: true);
+              return const ContentPlaceholder();
             }
             if (snapshot.hasError) {
               return StatePanel(
@@ -226,7 +267,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => context.push('/history'),
+                    onPressed: _openHistory,
                     icon: const Icon(Icons.history, size: 19),
                     label: const Text('练习记录', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(

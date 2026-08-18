@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:ielts_speaking/core/models.dart';
+import 'package:ielts_speaking/core/navigation_data.dart';
 import 'package:ielts_speaking/core/providers.dart';
 import 'package:ielts_speaking/features/feedback_page.dart';
 import 'package:ielts_speaking/router.dart';
+import 'package:ielts_speaking/ui/widgets.dart';
 
 void main() {
   testWidgets('page navigation notifies without treating dialogs as pages',
@@ -111,5 +113,78 @@ void main() {
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.text('原页面'), findsOneWidget);
+  });
+
+  testWidgets('prefetched routes render content without a loading page',
+      (tester) async {
+    final test = TestItem.fromJson(<String, dynamic>{
+      'id': 60,
+      'bookId': 14,
+      'type': 2,
+      'bookName': '5–8 月',
+      'name': 'Science',
+      'part': 1,
+      'seqNo': 1,
+      'displayName': 'Science',
+    });
+    final record = AssessmentRecord.fromJson(<String, dynamic>{
+      'id': 28,
+      'testId': 60,
+      'bookName': '5–8 月',
+      'testName': 'Science',
+      'createAt': '2026-08-13T19:41:00',
+    });
+    final router = createAppRouter(onPageChanged: () {});
+    addTearDown(router.dispose);
+
+    router.go(
+      '/history',
+      extra: const RecordPage(
+        records: [],
+        hasMore: false,
+        nextCursorId: null,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('还没有练习记录'), findsOneWidget);
+    expect(find.textContaining('正在加载'), findsNothing);
+    expect(find.byType(ContentPlaceholder), findsNothing);
+
+    router.push(
+      '/history/${record.id}',
+      extra: RecordDetails(record: record, details: const []),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('这次练习没有明细'), findsOneWidget);
+    expect(find.textContaining('正在加载'), findsNothing);
+    expect(find.byType(ContentPlaceholder), findsNothing);
+
+    router.go(
+      '/practice/${test.id}?mode=seasonal&part=1',
+      extra: PracticeNavigationData(
+        test: test,
+        questions: SpokenQuestions(
+          test: test,
+          questions: [
+            QuestionItem.fromJson(<String, dynamic>{
+              'id': 573,
+              'testId': 60,
+              'part': 1,
+              'seqNo': 1,
+              'questionText': 'Do you like science?',
+              'audioUrl': '',
+              'taskType': 'question',
+            }),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Do you like science?'), findsOneWidget);
+    expect(find.textContaining('正在加载'), findsNothing);
+    expect(find.byType(ContentPlaceholder), findsNothing);
   });
 }

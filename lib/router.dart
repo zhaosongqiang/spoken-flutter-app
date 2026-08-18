@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/models.dart';
+import 'core/navigation_data.dart';
 import 'features/feedback_page.dart';
 import 'features/history_page.dart';
 import 'features/practice_page.dart';
@@ -19,11 +20,16 @@ GoRouter createAppRouter({required VoidCallback onPageChanged}) {
       GoRoute(
         path: '/practice/:testId',
         builder: (context, state) {
-          final test = state.extra is TestItem ? state.extra as TestItem : null;
+          final navigationData = state.extra is PracticeNavigationData
+              ? state.extra as PracticeNavigationData
+              : null;
+          final test = navigationData?.test ??
+              (state.extra is TestItem ? state.extra as TestItem : null);
           return PracticePage(
             testId: int.tryParse(state.pathParameters['testId'] ?? '') ?? 0,
             mode: state.uri.queryParameters['mode'] ?? 'seasonal',
             part: int.tryParse(state.uri.queryParameters['part'] ?? ''),
+            initialQuestions: navigationData?.questions,
             initialTitle: test?.displayName.isNotEmpty == true
                 ? test!.displayName
                 : test?.name,
@@ -31,11 +37,19 @@ GoRouter createAppRouter({required VoidCallback onPageChanged}) {
         },
       ),
       GoRoute(
-          path: '/history', builder: (context, state) => const HistoryPage()),
+        path: '/history',
+        builder: (context, state) => HistoryPage(
+          initialPage:
+              state.extra is RecordPage ? state.extra as RecordPage : null,
+        ),
+      ),
       GoRoute(
         path: '/history/:recordId',
         builder: (context, state) => RecordDetailPage(
           recordId: int.tryParse(state.pathParameters['recordId'] ?? '') ?? 0,
+          initialDetails: state.extra is RecordDetails
+              ? state.extra as RecordDetails
+              : null,
         ),
       ),
       GoRoute(

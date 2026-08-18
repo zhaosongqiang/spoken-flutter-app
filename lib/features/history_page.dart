@@ -9,7 +9,9 @@ import '../ui/design.dart';
 import '../ui/widgets.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
-  const HistoryPage({super.key});
+  const HistoryPage({this.initialPage, super.key});
+
+  final RecordPage? initialPage;
 
   @override
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
@@ -23,12 +25,40 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   bool _hasMore = false;
   int? _cursor;
   String? _error;
+  int? _openingRecordId;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_handleScroll);
-    _load(reset: true);
+    final initialPage = widget.initialPage;
+    if (initialPage == null) {
+      _load(reset: true);
+    } else {
+      _records.addAll(initialPage.records);
+      _hasMore = initialPage.hasMore;
+      _cursor = initialPage.nextCursorId;
+      _loading = false;
+    }
+  }
+
+  Future<void> _openRecord(AssessmentRecord record) async {
+    if (_openingRecordId != null) return;
+    setState(() => _openingRecordId = record.id);
+    try {
+      final api = await ref.read(spokenApiProvider.future);
+      final details = await api.recordDetails(record.id);
+      if (!mounted) return;
+      await context.push<void>('/history/${record.id}', extra: details);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('记录详情暂时无法打开：$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _openingRecordId = null);
+    }
   }
 
   void _handleScroll() {
@@ -40,7 +70,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Future<void> _load({bool reset = false}) async {
     if (reset) {
       setState(() {
-        _loading = true;
+        _loading = _records.isEmpty;
         _error = null;
       });
     } else {
@@ -85,7 +115,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       );
 
   Widget _body() {
-    if (_loading) return const StatePanel(title: '正在加载练习记录', loading: true);
+    if (_loading) return const ContentPlaceholder();
     if (_error != null && _records.isEmpty) {
       return StatePanel(
         title: '记录暂时无法加载',
@@ -172,7 +202,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             for (final record in group.value)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: _RecordRow(record: record),
+                child: _RecordRow(
+                  record: record,
+                  opening: _openingRecordId == record.id,
+                  onTap: () => _openRecord(record),
+                ),
               ),
             const SizedBox(height: 16),
           ],
@@ -206,9 +240,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 }
 
 class _RecordRow extends StatelessWidget {
-  const _RecordRow({required this.record});
+  const _RecordRow({
+    required this.record,
+    required this.opening,
+    required this.onTap,
+  });
 
   final AssessmentRecord record;
+  final bool opening;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => Material(
@@ -218,7 +258,7 @@ class _RecordRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: InkWell(
-          onTap: () => context.push('/history/${record.id}'),
+          onTap: opening ? null : onTap,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             constraints: const BoxConstraints(minHeight: 78),
@@ -266,8 +306,15 @@ class _RecordRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right,
-                    size: 20, color: AppColors.muted),
+                if (opening)
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  const Icon(Icons.chevron_right,
+                      size: 20, color: AppColors.muted),
               ],
             ),
           ),

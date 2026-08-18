@@ -8,9 +8,14 @@ import '../ui/design.dart';
 import '../ui/widgets.dart';
 
 class RecordDetailPage extends ConsumerStatefulWidget {
-  const RecordDetailPage({required this.recordId, super.key});
+  const RecordDetailPage({
+    required this.recordId,
+    this.initialDetails,
+    super.key,
+  });
 
   final int recordId;
+  final RecordDetails? initialDetails;
 
   @override
   ConsumerState<RecordDetailPage> createState() => _RecordDetailPageState();
@@ -22,7 +27,9 @@ class _RecordDetailPageState extends ConsumerState<RecordDetailPage> {
   @override
   void initState() {
     super.initState();
-    _details = _load();
+    _details = widget.initialDetails == null
+        ? _load()
+        : Future<RecordDetails>.value(widget.initialDetails!);
   }
 
   Future<RecordDetails> _load() async {
@@ -32,31 +39,35 @@ class _RecordDetailPageState extends ConsumerState<RecordDetailPage> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<RecordDetails>(
-        future: _details,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return AppFrame(
-              title: '练习记录详情',
-              onBack: () => goBackOr(context, '/history'),
-              body: const StatePanel(title: '正在加载记录详情', loading: true),
-            );
-          }
-          if (snapshot.hasError) {
-            return AppFrame(
-              title: '练习记录详情',
-              onBack: () => goBackOr(context, '/history'),
-              body: StatePanel(
-                title: '详情暂时无法加载',
-                description: snapshot.error.toString(),
-                action: '重新加载',
-                onAction: () => setState(() => _details = _load()),
-              ),
-            );
-          }
-          return _content(snapshot.requireData);
-        },
-      );
+  Widget build(BuildContext context) {
+    final initialDetails = widget.initialDetails;
+    if (initialDetails != null) return _content(initialDetails);
+    return FutureBuilder<RecordDetails>(
+      future: _details,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return AppFrame(
+            title: '练习记录详情',
+            onBack: () => goBackOr(context, '/history'),
+            body: const ContentPlaceholder(),
+          );
+        }
+        if (snapshot.hasError) {
+          return AppFrame(
+            title: '练习记录详情',
+            onBack: () => goBackOr(context, '/history'),
+            body: StatePanel(
+              title: '详情暂时无法加载',
+              description: snapshot.error.toString(),
+              action: '重新加载',
+              onAction: () => setState(() => _details = _load()),
+            ),
+          );
+        }
+        return _content(snapshot.requireData);
+      },
+    );
+  }
 
   Widget _content(RecordDetails data) {
     if (data.details.isEmpty) {
