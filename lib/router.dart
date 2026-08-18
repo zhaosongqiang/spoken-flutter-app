@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/models.dart';
@@ -7,12 +8,11 @@ import 'features/practice_page.dart';
 import 'features/record_detail_page.dart';
 import 'features/topic_selection_page.dart';
 
-final appRouter = _createAppRouter();
-
-GoRouter _createAppRouter() {
+GoRouter createAppRouter({required VoidCallback onPageChanged}) {
   // Imperative push routes must remain deep-linkable after a Web refresh.
   GoRouter.optionURLReflectsImperativeAPIs = true;
   return GoRouter(
+    observers: [PageChangeObserver(onPageChanged)],
     routes: [
       GoRoute(
           path: '/', builder: (context, state) => const TopicSelectionPage()),
@@ -49,4 +49,38 @@ GoRouter _createAppRouter() {
     ],
     errorBuilder: (context, state) => const TopicSelectionPage(),
   );
+}
+
+class PageChangeObserver extends NavigatorObserver {
+  PageChangeObserver(this.onPageChanged);
+
+  final VoidCallback onPageChanged;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPush(route, previousRoute);
+    if (previousRoute != null && route is PageRoute<dynamic>) {
+      onPageChanged();
+    }
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didPop(route, previousRoute);
+    if (route is PageRoute<dynamic>) onPageChanged();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    super.didRemove(route, previousRoute);
+    if (route is PageRoute<dynamic>) onPageChanged();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+    if (newRoute is PageRoute<dynamic> || oldRoute is PageRoute<dynamic>) {
+      onPageChanged();
+    }
+  }
 }

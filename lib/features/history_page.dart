@@ -80,7 +80,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   Widget build(BuildContext context) => AppFrame(
         title: '练习记录',
-        onBack: () => context.go('/'),
+        onBack: () => goBackOr(context, '/'),
         body: _body(),
       );
 
@@ -99,7 +99,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         title: '还没有练习记录',
         description: '完成一次口语练习后，评测记录会保存在这里。',
         action: '开始第一次练习',
-        onAction: () => context.go('/'),
+        onAction: () => goBackOr(context, '/'),
       );
     }
     final groups = <String, List<AssessmentRecord>>{};

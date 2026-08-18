@@ -12,6 +12,7 @@ class AppAudioService {
 
   final AudioPlayer _player = AudioPlayer();
   String? _activeKey;
+  int _operationId = 0;
   late final StreamSubscription<ProcessingState> _completionSubscription;
 
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
@@ -30,28 +31,37 @@ class AppAudioService {
 
   Future<void> playUrl(String key, String url) async {
     if (url.isEmpty) throw StateError('音频地址为空');
+    final operationId = ++_operationId;
     await _player.stop();
+    if (operationId != _operationId) return;
     _activeKey = key;
     await _player.setUrl(url);
+    if (operationId != _operationId) return;
     await _player.play();
   }
 
   Future<void> playBytes(String key, Uint8List bytes,
       {String? contentType}) async {
+    final operationId = ++_operationId;
     await _player.stop();
+    if (operationId != _operationId) return;
     _activeKey = key;
     await _player.setAudioSource(
       _BytesAudioSource(bytes, contentType ?? 'audio/mpeg'),
     );
+    if (operationId != _operationId) return;
     await _player.play();
   }
 
   Future<void> stop() async {
-    await _player.stop();
+    _operationId++;
     _activeKey = null;
+    await _player.stop();
   }
 
   Future<void> dispose() async {
+    _operationId++;
+    _activeKey = null;
     await _completionSubscription.cancel();
     await _player.dispose();
   }

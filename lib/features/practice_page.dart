@@ -103,6 +103,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 
   Future<void> _autoPlayQuestionAudio(QuestionItem question) async {
     if (!mounted ||
+        ModalRoute.of(context)?.isCurrent != true ||
         _presentedQuestionId != question.id ||
         _recorder.status == VoiceRecorderStatus.recording ||
         _assessing) {
@@ -170,7 +171,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     if (session.answers.isEmpty &&
         _recorder.status == VoiceRecorderStatus.idle &&
         !_assessing) {
-      context.go('/');
+      goBackOr(context, '/');
       return;
     }
     final exit = await showDialog<bool>(
@@ -192,7 +193,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     if (exit == true && mounted) {
       await _recorder.cancel();
       ref.read(practiceSessionProvider.notifier).clear();
-      if (mounted) context.go('/');
+      if (mounted) goBackOr(context, '/');
     }
   }
 
@@ -260,7 +261,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                 title: '当前练习没有题目',
                 description: '请返回题库选择其他练习。',
                 action: '返回题库',
-                onAction: () => context.go('/'),
+                onAction: () => goBackOr(context, '/'),
               ),
             );
           }

@@ -139,7 +139,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
     if (selection == null) return;
     final mode = _mode.name;
     final part = selection.part ?? 0;
-    context.go(
+    context.push(
       '/practice/${selection.id}?mode=$mode&part=$part',
       extra: selection,
     );
@@ -226,7 +226,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => context.go('/history'),
+                    onPressed: () => context.push('/history'),
                     icon: const Icon(Icons.history, size: 19),
                     label: const Text('练习记录', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(

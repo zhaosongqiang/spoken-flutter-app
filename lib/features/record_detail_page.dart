@@ -68,7 +68,7 @@ class _RecordDetailPageState extends ConsumerState<RecordDetailPage> {
           title: '这次练习没有明细',
           description: '当前记录没有可展示的题目或回答。',
           action: '返回练习记录',
-          onAction: () => context.go('/history'),
+          onAction: () => goBackOr(context, '/history'),
         ),
       );
     }

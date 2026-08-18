@@ -99,6 +99,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       final api = await ref.read(spokenApiProvider.future);
       final bytes =
           await api.aiSpoken(widget.recordId, questionId: _detail?.questionId);
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
       await ref
           .read(audioServiceProvider)
           .playBytes('ai-${widget.detailId}', bytes);
@@ -122,7 +123,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   }
 
   void _back() {
-    if (widget.source == 'practice' && context.canPop()) {
+    if (context.canPop()) {
       context.pop();
       return;
     }
@@ -193,8 +194,8 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       return StatePanel(
         title: '还没有可查看的评测',
         description: '当前练习中没有找到这条评分明细。',
-        action: '返回练习记录',
-        onAction: () => context.go('/history'),
+        action: '返回上一页',
+        onAction: _back,
       );
     }
     if (_aiError != null) {
