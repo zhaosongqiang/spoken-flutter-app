@@ -247,16 +247,20 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
             ),
           ),
         ],
-        const SizedBox(height: 24),
-        const Divider(height: 1),
-        const SizedBox(height: 16),
-        SizedBox(
+        Container(
+          margin: const EdgeInsets.only(top: 24),
+          padding: const EdgeInsets.only(top: 16),
           width: double.infinity,
           child: OutlinedButton(
             onPressed: _openFeedbackSheet,
             style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.foreground,
+              backgroundColor: AppColors.background,
               minimumSize: const Size.fromHeight(48),
               side: const BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               textStyle: const TextStyle(fontWeight: FontWeight.w700),
             ),
             child: const Text('我要反馈'),
