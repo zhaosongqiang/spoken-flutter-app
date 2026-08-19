@@ -887,7 +887,7 @@ class _FeedbackSubmissionSheetState extends State<_FeedbackSubmissionSheet> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '反馈任何错误反馈或者建议，帮助我们更好地优化服务',
+                  '反馈任何错误或者建议，帮助我们更好地优化服务',
                   style: TextStyle(
                     color: AppColors.muted,
                     fontSize: 13,
