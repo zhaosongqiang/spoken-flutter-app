@@ -185,7 +185,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text('要结束本次练习吗？'),
-        content: const Text('已完成的评分会保存在练习记录中，未提交的录音将被丢弃。'),
+        content: const Text('已完成的评分会保存在练习记录中。'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
