@@ -143,41 +143,45 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
     final mode = _mode.name;
     final part = selection.part ?? 0;
     setState(() => _openingPage = true);
+    late final SpokenQuestions questions;
     try {
       final api = await ref.read(spokenApiProvider.future);
-      final questions = await api.questions(
+      questions = await api.questions(
         selection.id,
         part: mode == LibraryMode.seasonal.name ? selection.part : null,
       );
-      if (!mounted) return;
-      await context.push<void>(
-        '/practice/${selection.id}?mode=$mode&part=$part',
-        extra: PracticeNavigationData(
-          test: selection,
-          questions: questions,
-        ),
-      );
     } catch (error) {
       if (mounted) _showNavigationError('练习题目暂时无法打开', error);
+      return;
     } finally {
       if (mounted) setState(() => _openingPage = false);
     }
+    if (!mounted) return;
+    await context.push<void>(
+      '/practice/${selection.id}?mode=$mode&part=$part',
+      extra: PracticeNavigationData(
+        test: selection,
+        questions: questions,
+      ),
+    );
   }
 
   Future<void> _openHistory() async {
     if (_openingPage) return;
     setState(() => _openingPage = true);
+    late final RecordPage page;
     try {
       await ref.read(accountBootstrapProvider.future);
       final api = await ref.read(spokenApiProvider.future);
-      final page = await api.records();
-      if (!mounted) return;
-      await context.push<void>('/history', extra: page);
+      page = await api.records();
     } catch (error) {
       if (mounted) _showNavigationError('练习记录暂时无法打开', error);
+      return;
     } finally {
       if (mounted) setState(() => _openingPage = false);
     }
+    if (!mounted) return;
+    await context.push<void>('/history', extra: page);
   }
 
   void _showNavigationError(String message, Object error) {
@@ -467,7 +471,8 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
                 _visible = pageSize;
               }));
     }
-    final selected = _bookMin * 100 + _bookMax;
+    final selected =
+        _bookMin == 9 && _bookMax == 99 ? 9999 : _bookMin * 100 + _bookMax;
     return _horizontalChips(
         <({String label, int value})>[
           (label: '全部 13 册', value: 9999),

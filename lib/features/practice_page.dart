@@ -197,10 +197,15 @@ class _PracticePageState extends ConsumerState<PracticePage> {
       ),
     );
     if (exit == true && mounted) {
-      await _recorder.cancel();
-      ref.read(practiceSessionProvider.notifier).clear();
-      if (mounted) goBackOr(context, '/');
+      await _leavePractice();
     }
+  }
+
+  Future<void> _leavePractice() async {
+    await _recorder.cancel();
+    if (!mounted) return;
+    ref.read(practiceSessionProvider.notifier).clear();
+    goBackOr(context, '/');
   }
 
   void _next(int length, {required bool answered}) {
@@ -286,6 +291,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     final question = questions[_index];
     _scheduleQuestionAudio(question);
     final session = ref.watch(practiceSessionProvider);
+    final answeredQuestionIds =
+        session.answers.map((answer) => answer.question.id).toSet();
+    final allQuestionsAnswered =
+        questions.every((item) => answeredQuestionIds.contains(item.id));
     final currentAnswer = session.answers
         .where((answer) => answer.question.id == question.id)
         .firstOrNull;
@@ -320,7 +329,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                   width: 48,
                   child: IconButton(
                     tooltip: '返回选题',
-                    onPressed: _requestExit,
+                    onPressed:
+                        allQuestionsAnswered ? _leavePractice : _requestExit,
                     icon: const Icon(Icons.chevron_left, size: 24),
                   ),
                 ),

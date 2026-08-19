@@ -8,6 +8,7 @@ import 'package:ielts_speaking/core/models.dart';
 import 'package:ielts_speaking/core/navigation_data.dart';
 import 'package:ielts_speaking/core/providers.dart';
 import 'package:ielts_speaking/features/feedback_page.dart';
+import 'package:ielts_speaking/features/practice_page.dart';
 import 'package:ielts_speaking/router.dart';
 import 'package:ielts_speaking/ui/widgets.dart';
 
@@ -113,6 +114,94 @@ void main() {
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
     expect(find.text('原页面'), findsOneWidget);
+  });
+
+  testWidgets(
+      'practice back skips confirmation after every question is answered',
+      (tester) async {
+    final firstQuestion = QuestionItem.fromJson(<String, dynamic>{
+      'id': 573,
+      'testId': 60,
+      'part': 1,
+      'seqNo': 1,
+      'questionText': 'Do you like science?',
+      'audioUrl': '',
+      'taskType': 'question',
+    });
+    final secondQuestion = QuestionItem.fromJson(<String, dynamic>{
+      'id': 574,
+      'testId': 60,
+      'part': 1,
+      'seqNo': 2,
+      'questionText': 'What science subject do you enjoy?',
+      'audioUrl': '',
+      'taskType': 'question',
+    });
+    const firstResult = AssessmentResult(
+      recordId: 28,
+      detailId: 81,
+      audioPath: '',
+      score: 6.5,
+      transcription: 'Yes, I do.',
+    );
+    const secondResult = AssessmentResult(
+      recordId: 28,
+      detailId: 82,
+      audioPath: '',
+      score: 7,
+      transcription: 'I enjoy physics.',
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('选题页面')),
+        ),
+        GoRoute(
+          path: '/practice',
+          builder: (context, state) => PracticePage(
+            testId: 60,
+            mode: 'seasonal',
+            part: 1,
+            initialTitle: 'Science',
+            initialQuestions: SpokenQuestions(
+              test: null,
+              questions: [firstQuestion, secondQuestion],
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    router.push('/practice');
+    await tester.pumpAndSettle();
+
+    final session = container.read(practiceSessionProvider.notifier);
+    session.save(firstQuestion, firstResult);
+    await tester.pump();
+    await tester.tap(find.byTooltip('返回选题'));
+    await tester.pumpAndSettle();
+    expect(find.text('要结束本次练习吗？'), findsOneWidget);
+
+    await tester.tap(find.text('继续练习'));
+    await tester.pumpAndSettle();
+    session.save(secondQuestion, secondResult);
+    await tester.pump();
+    await tester.tap(find.byTooltip('返回选题'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('要结束本次练习吗？'), findsNothing);
+    expect(find.text('选题页面'), findsOneWidget);
+    expect(container.read(practiceSessionProvider).answers, isEmpty);
   });
 
   testWidgets('prefetched routes render content without a loading page',
