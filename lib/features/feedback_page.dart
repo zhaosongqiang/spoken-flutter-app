@@ -152,7 +152,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     );
     if (submitted == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('反馈已提交，感谢你的建议')),
+        const SnackBar(content: Text('反馈已提交，感谢你的反馈')),
       );
     }
   }
