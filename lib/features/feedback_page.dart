@@ -161,15 +161,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   Widget build(BuildContext context) => AppFrame(
         title: '评测反馈',
         onBack: _back,
-        actions: _evaluation == null
-            ? null
-            : [
-                IconButton(
-                  tooltip: '复制评分摘要',
-                  onPressed: () => _copy(_summaryText(), '评分摘要已复制'),
-                  icon: const Icon(Icons.ios_share_outlined, size: 21),
-                ),
-              ],
+        actions: null,
         body: _body(),
       );
 
