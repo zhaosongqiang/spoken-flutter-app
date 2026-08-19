@@ -14,6 +14,15 @@ final accountBootstrapProvider = FutureProvider<AccountBootstrap>((ref) async {
   return api.bootstrap();
 });
 
+typedef RecordDetailsLoader = Future<RecordDetails> Function(int recordId);
+
+final recordDetailsLoaderProvider = Provider<RecordDetailsLoader>((ref) {
+  return (recordId) async {
+    final api = await ref.read(spokenApiProvider.future);
+    return api.recordDetails(recordId);
+  };
+});
+
 final audioServiceProvider = Provider<AppAudioService>((ref) {
   final service = AppAudioService();
   ref.onDispose(() => unawaited(service.dispose()));

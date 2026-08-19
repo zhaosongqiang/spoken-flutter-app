@@ -8,6 +8,7 @@ import 'package:ielts_speaking/core/models.dart';
 import 'package:ielts_speaking/core/navigation_data.dart';
 import 'package:ielts_speaking/core/providers.dart';
 import 'package:ielts_speaking/features/feedback_page.dart';
+import 'package:ielts_speaking/features/history_page.dart';
 import 'package:ielts_speaking/features/practice_page.dart';
 import 'package:ielts_speaking/router.dart';
 import 'package:ielts_speaking/ui/widgets.dart';
@@ -202,6 +203,80 @@ void main() {
     expect(find.text('要结束本次练习吗？'), findsNothing);
     expect(find.text('选题页面'), findsOneWidget);
     expect(container.read(practiceSessionProvider).answers, isEmpty);
+  });
+
+  testWidgets(
+      'history records remain interactive after non-button navigation returns',
+      (tester) async {
+    final firstRecord = AssessmentRecord.fromJson(<String, dynamic>{
+      'id': 28,
+      'testId': 60,
+      'bookName': '5–8 月',
+      'testName': 'Science',
+      'createAt': '2026-08-13T19:41:00',
+    });
+    final secondRecord = AssessmentRecord.fromJson(<String, dynamic>{
+      'id': 29,
+      'testId': 61,
+      'bookName': '剑雅 16',
+      'testName': 'Test 2',
+      'createAt': '2026-08-13T18:30:00',
+    });
+    final records = [firstRecord, secondRecord];
+    final openedRecordIds = <int>[];
+    final initialPage = RecordPage(
+      records: records,
+      hasMore: false,
+      nextCursorId: null,
+    );
+    final router = GoRouter(
+      initialLocation: '/history',
+      routes: [
+        GoRoute(
+          path: '/history',
+          builder: (context, state) => HistoryPage(initialPage: initialPage),
+        ),
+        GoRoute(
+          path: '/history/:recordId',
+          builder: (context, state) => Scaffold(
+            body: Text('记录详情 ${state.pathParameters['recordId']}'),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          recordDetailsLoaderProvider.overrideWithValue((recordId) async {
+            openedRecordIds.add(recordId);
+            return RecordDetails(
+              record: records.firstWhere((record) => record.id == recordId),
+              details: const [],
+            );
+          }),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('5–8 月 · Science'));
+    await tester.pumpAndSettle();
+    expect(find.text('记录详情 28'), findsOneWidget);
+    expect(
+      find.byType(CircularProgressIndicator, skipOffstage: false),
+      findsNothing,
+    );
+
+    router.go('/history');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('剑雅 16 · Test 2'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('记录详情 29'), findsOneWidget);
+    expect(openedRecordIds, [28, 29]);
   });
 
   testWidgets('prefetched routes render content without a loading page',

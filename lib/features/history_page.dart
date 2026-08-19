@@ -45,20 +45,21 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Future<void> _openRecord(AssessmentRecord record) async {
     if (_openingRecordId != null) return;
     setState(() => _openingRecordId = record.id);
+    late final RecordDetails details;
     try {
-      final api = await ref.read(spokenApiProvider.future);
-      final details = await api.recordDetails(record.id);
-      if (!mounted) return;
-      await context.push<void>('/history/${record.id}', extra: details);
+      details = await ref.read(recordDetailsLoaderProvider)(record.id);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text('记录详情暂时无法打开：$error')));
       }
+      return;
     } finally {
       if (mounted) setState(() => _openingRecordId = null);
     }
+    if (!mounted) return;
+    await context.push<void>('/history/${record.id}', extra: details);
   }
 
   void _handleScroll() {
