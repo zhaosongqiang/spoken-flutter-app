@@ -61,6 +61,8 @@ https://spoken.example.com/api/v1/...   Nginx 转发到 127.0.0.1:8080
 ```bash
 flutter build web --release \
   --dart-define=API_BASE_URL=https://www.nineduck.com
+
+scp -P 45600 -r build/web/ ecs-user@121.40.78.62:/home/ecs-user/web
 ```
 
 `API_BASE_URL` 是编译期参数，更换接口域名后需要重新构建。构建完成后，将
