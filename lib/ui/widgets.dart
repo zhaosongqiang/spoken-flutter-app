@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -373,4 +375,14 @@ void goBackOr(BuildContext context, String fallback) {
   } else {
     context.go(fallback);
   }
+}
+
+/// Pushes a page without coupling the source page's UI state to its lifetime.
+///
+/// A push future completes only after the pushed page is removed. Awaiting that
+/// future while a loading flag is active leaves the source page in its loading
+/// state during an interactive back gesture and can make it appear to refresh
+/// again when the gesture completes.
+void openPage(BuildContext context, String location, {Object? extra}) {
+  unawaited(context.push<void>(location, extra: extra));
 }

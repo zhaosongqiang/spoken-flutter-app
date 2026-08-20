@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../core/models.dart';
 import '../core/providers.dart';
@@ -241,7 +240,8 @@ class _DetailExchange extends StatelessWidget {
                               ScoreBadge(detail.overallScore),
                               const SizedBox(width: 8),
                               TextButton(
-                                onPressed: () => context.push(
+                                onPressed: () => openPage(
+                                  context,
                                   '/feedback/${detail.recordId}/${detail.id}?from=history',
                                 ),
                                 style: TextButton.styleFrom(

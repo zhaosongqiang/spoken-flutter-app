@@ -270,13 +270,28 @@ void main() {
       findsNothing,
     );
 
-    router.go('/history');
+    // A pop is what the app bar, Android back and a completed iOS back
+    // gesture ultimately perform. The existing history route must be reused.
+    router.pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('剑雅 16 · Test 2'));
     await tester.pumpAndSettle();
 
     expect(find.text('记录详情 29'), findsOneWidget);
     expect(openedRecordIds, [28, 29]);
+
+    // A declarative navigation return (for example browser history) must not
+    // leave the source route in its pre-navigation loading state either.
+    router.go('/history');
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(CircularProgressIndicator, skipOffstage: false),
+      findsNothing,
+    );
+    await tester.tap(find.text('5–8 月 · Science'));
+    await tester.pumpAndSettle();
+    expect(find.text('记录详情 28'), findsOneWidget);
+    expect(openedRecordIds, [28, 29, 28]);
   });
 
   testWidgets('prefetched routes render content without a loading page',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../core/models.dart';
@@ -59,7 +58,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       if (mounted) setState(() => _openingRecordId = null);
     }
     if (!mounted) return;
-    await context.push<void>('/history/${record.id}', extra: details);
+    openPage(context, '/history/${record.id}', extra: details);
   }
 
   void _handleScroll() {

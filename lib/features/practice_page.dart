@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../core/models.dart';
 import '../core/providers.dart';
@@ -503,7 +502,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                         : atLast
                             ? currentAnswer == null
                                 ? null
-                                : () => context.push(
+                                : () => openPage(
+                                      context,
                                       '/feedback/${currentAnswer.result.recordId}/${currentAnswer.result.detailId}?from=practice',
                                     )
                             : () => _next(
@@ -659,7 +659,8 @@ class _AnswerCard extends StatelessWidget {
                         ScoreBadge(answer.result.score),
                         const SizedBox(width: 8),
                         TextButton(
-                          onPressed: () => context.push(
+                          onPressed: () => openPage(
+                            context,
                             '/feedback/${answer.result.recordId}/${answer.result.detailId}?from=practice',
                           ),
                           style: TextButton.styleFrom(

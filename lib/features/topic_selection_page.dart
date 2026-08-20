@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/models.dart';
@@ -157,7 +156,8 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
       if (mounted) setState(() => _openingPage = false);
     }
     if (!mounted) return;
-    await context.push<void>(
+    openPage(
+      context,
       '/practice/${selection.id}?mode=$mode&part=$part',
       extra: PracticeNavigationData(
         test: selection,
@@ -181,7 +181,7 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
       if (mounted) setState(() => _openingPage = false);
     }
     if (!mounted) return;
-    await context.push<void>('/history', extra: page);
+    openPage(context, '/history', extra: page);
   }
 
   void _showNavigationError(String message, Object error) {
