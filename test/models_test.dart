@@ -13,13 +13,15 @@ void main() {
       'questionAudioUrl': null,
       'audioPath': null,
       'transcription': null,
-      'overallScore': 7,
-      'pronunciationScore': null,
+      'providerRequestId': 'voice-1',
+      'suggestedScore': 82.5,
+      'pronAccuracy': null,
     });
 
     expect(detail.id, 33);
-    expect(detail.overallScore, 7.0);
-    expect(detail.pronunciationScore, isNull);
+    expect(detail.providerRequestId, 'voice-1');
+    expect(detail.suggestedScore, 82.5);
+    expect(detail.pronAccuracy, isNull);
     expect(detail.audioPath, isEmpty);
   });
 
@@ -60,18 +62,47 @@ void main() {
           'part': 1,
           'seqNo': 1,
           'questionPrompt': 'Do you like science?',
-          'overallScore': 6,
-          'fluencyCoherenceScore': 6,
-          'lexicalResourceScore': 6,
-          'wordCnt': 27,
+          'suggestedScore': 81,
+          'pronAccuracy': 90,
+          'pronFluency': 0.87,
+          'pronunciationWords': [
+            {'word': 'science', 'pronAccuracy': 92, 'matchTag': 0}
+          ],
         }
       ],
     });
 
     expect(details.record.id, 28);
     expect(details.record.testName, 'Science');
-    expect(details.details.single.fluencyScore, 6);
-    expect(details.details.single.lexicalScore, 6);
-    expect(details.details.single.wordCount, 27);
+    expect(details.details.single.suggestedScore, 81);
+    expect(details.details.single.pronAccuracy, 90);
+    expect(details.details.single.pronFluency, 0.87);
+    expect(details.details.single.pronunciationWords, isA<List<dynamic>>());
+  });
+
+  test('parses Qwen bands and flat Tencent words independently', () {
+    final evaluation = AiEvaluation.fromJson(<String, dynamic>{
+      'overallBand': 6.5,
+      'pronunciationBand': 6,
+      'fluencyCoherenceBand': 6.5,
+      'lexicalResourceBand': 7,
+      'grammarBand': 6,
+      'suggestedScore': 82.5,
+      'pronAccuracy': 91,
+      'pronFluency': 0.88,
+      'words': [
+        {
+          'word': 'science',
+          'pronAccuracy': 92,
+          'pronFluency': 0.9,
+          'matchTag': 0,
+        }
+      ],
+    });
+
+    expect(evaluation.overallBand, 6.5);
+    expect(evaluation.suggestedScore, 82.5);
+    expect(evaluation.pronFluency, 0.88);
+    expect(evaluation.words, isA<List<dynamic>>());
   });
 }

@@ -6,7 +6,7 @@ const _pcmBitsPerSample = 16;
 const _wavHeaderSize = 44;
 
 /// Converts a PCM16 WAV to the sample rate and channel count required by
-/// SpeechSuper. Downsampling uses area averaging to avoid simply dropping
+/// the pronunciation assessment API. Downsampling uses area averaging to avoid simply dropping
 /// samples and introducing excessive aliasing.
 Uint8List normalizePcm16Wav(
   Uint8List bytes, {

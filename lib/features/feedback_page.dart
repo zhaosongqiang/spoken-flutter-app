@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -114,14 +113,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     }
   }
 
-  Future<void> _copy(String value, String success) async {
-    await Clipboard.setData(ClipboardData(text: value));
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(success)));
-    }
-  }
-
   void _back() {
     if (context.canPop()) {
       context.pop();
@@ -202,7 +193,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       children: [
         _ScoreSummary(detail: detail, evaluation: _evaluation),
         const SizedBox(height: 10),
-        _metricTabs(detail),
+        _metricTabs(),
         const SizedBox(height: 20),
         _metricPanel(detail),
         if (_evaluation?.improvedAnswerText.isNotEmpty == true) ...[
@@ -263,7 +254,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     );
   }
 
-  Widget _metricTabs(AssessmentDetail detail) => Container(
+  Widget _metricTabs() => Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
           color: AppColors.background,
@@ -280,13 +271,13 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         child: Row(
           children: [
             _metricButton(FeedbackMetric.pronunciation, '发音',
-                _evaluation?.pronunciationScore ?? detail.pronunciationScore),
+                _evaluation?.pronunciationBand),
             _metricButton(FeedbackMetric.fluency, '流利度',
-                _evaluation?.fluencyScore ?? detail.fluencyScore),
+                _evaluation?.fluencyCoherenceBand),
             _metricButton(FeedbackMetric.vocabulary, '词汇',
-                _evaluation?.lexicalScore ?? detail.lexicalScore),
-            _metricButton(FeedbackMetric.grammar, '语法',
-                _evaluation?.grammarScore ?? detail.grammarScore),
+                _evaluation?.lexicalResourceBand),
+            _metricButton(
+                FeedbackMetric.grammar, '语法', _evaluation?.grammarBand),
           ],
         ),
       );
@@ -335,8 +326,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
           title: '发音反馈',
           summary: ai?.pronunciationSummary ?? '基础发音评分已生成，AI 深度总结正在准备。',
           children: [
-            _pronunciationWords(
-                ai?.sentencesPronunciation ?? detail.sentencesPronunciation),
+            _pronunciationWords(ai?.words ?? detail.pronunciationWords),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -444,15 +434,10 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       );
 
   Widget _pronunciationWords(Object? source) {
-    final sentences = _asList(source);
-    final words = <Map<String, dynamic>>[];
-    for (final sentence in sentences) {
-      final details =
-          sentence is Map ? _asList(sentence['details']) : const <dynamic>[];
-      for (final word in details) {
-        if (word is Map) words.add(Map<String, dynamic>.from(word));
-      }
-    }
+    final words = _asList(source)
+        .whereType<Map>()
+        .map((word) => Map<String, dynamic>.from(word))
+        .toList();
     if (words.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,24 +446,30 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
           spacing: 4,
           runSpacing: 6,
           children: words.map((word) {
-            final score = asInt(word['pronunciation'], 100);
-            final level = score >= 80
+            final score = asNullableDouble(word['pronAccuracy']);
+            final level = score == null
                 ? (
-                    color: const Color(0xFF095717),
-                    label: '清晰',
+                    color: AppColors.muted,
+                    label: '无评分',
                   )
-                : score >= 60
+                : score >= 80
                     ? (
-                        color: const Color(0xFF684600),
-                        label: '一般',
+                        color: const Color(0xFF095717),
+                        label: '清晰',
                       )
-                    : (
-                        color: const Color(0xFFA92227),
-                        label: '需改进',
-                      );
+                    : score >= 60
+                        ? (
+                            color: const Color(0xFF684600),
+                            label: '一般',
+                          )
+                        : (
+                            color: const Color(0xFFA92227),
+                            label: '需改进',
+                          );
             final text = asString(word['word']);
+            final scoreLabel = score?.toStringAsFixed(1) ?? '无';
             return Semantics(
-              label: '$text，$score分，${level.label}',
+              label: '$text，发音准确度$scoreLabel，${level.label}',
               child: ExcludeSemantics(
                 child: Padding(
                   padding:
@@ -781,17 +772,6 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     }
     return const <dynamic>[];
   }
-
-  String _summaryText() {
-    final detail = _detail;
-    final ai = _evaluation;
-    if (detail == null) return '';
-    return '总分 ${(ai?.overallScore ?? detail.overallScore)?.toStringAsFixed(1) ?? '—'} / 9\n'
-        '${ai?.overallSummary ?? ''}\n'
-        '相关性 ${ai?.relevance ?? detail.relevance ?? '—'}% · '
-        '${ai?.speed ?? detail.speed ?? '—'} 词/分钟 · '
-        '${ai?.wordCount ?? detail.wordCount ?? '—'} 词';
-  }
 }
 
 class _FeedbackSubmissionSheet extends StatefulWidget {
@@ -1018,7 +998,7 @@ class _ScoreSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final score = evaluation?.overallScore ?? detail.overallScore ?? 0;
+    final score = evaluation?.overallBand;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 18),
       padding: const EdgeInsets.all(18),
@@ -1038,7 +1018,7 @@ class _ScoreSummary extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
-                      value: (score / 9).clamp(0, 1),
+                      value: ((score ?? 0) / 9).clamp(0, 1),
                       strokeWidth: 12,
                       strokeCap: StrokeCap.butt,
                       color: AppColors.accent,
@@ -1049,7 +1029,7 @@ class _ScoreSummary extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            score.toStringAsFixed(1),
+                            score?.toStringAsFixed(1) ?? '—',
                             style: const TextStyle(
                               color: Colors.white,
                               fontFamily: 'monospace',
@@ -1091,12 +1071,20 @@ class _ScoreSummary extends StatelessWidget {
             ),
             child: Row(
               children: [
-                _stat('${evaluation?.relevance ?? detail.relevance ?? '—'}%',
-                    '相关性'),
-                _stat('${evaluation?.speed ?? detail.speed ?? '—'}', '词 / 分钟',
+                _stat(
+                    _formatScore(
+                        evaluation?.suggestedScore ?? detail.suggestedScore,
+                        100),
+                    '腾讯建议分'),
+                _stat(
+                    _formatScore(
+                        evaluation?.pronAccuracy ?? detail.pronAccuracy, 100),
+                    '发音准确度',
                     separated: true),
                 _stat(
-                    '${evaluation?.wordCount ?? detail.wordCount ?? '—'}', '词数',
+                    _formatScore(
+                        evaluation?.pronFluency ?? detail.pronFluency, 1),
+                    '发音流利度',
                     separated: true),
               ],
             ),
@@ -1131,4 +1119,8 @@ class _ScoreSummary extends StatelessWidget {
           ),
         ),
       );
+
+  String _formatScore(double? value, int maximum) => value == null
+      ? '—'
+      : '${value.toStringAsFixed(maximum == 1 ? 2 : 1)} / $maximum';
 }

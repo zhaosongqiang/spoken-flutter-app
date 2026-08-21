@@ -89,7 +89,7 @@ class SpokenApi {
       'POST',
       '$_apiPrefix/pronunciation/ielts_assessment',
       data: form,
-      timeout: const Duration(seconds: 90),
+      timeout: const Duration(seconds: 180),
     );
     return AssessmentResult.fromJson(json);
   }

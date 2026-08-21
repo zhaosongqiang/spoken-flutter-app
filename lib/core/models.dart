@@ -248,15 +248,11 @@ class AssessmentDetail {
     required this.questionAudioUrl,
     required this.audioPath,
     required this.transcription,
-    required this.overallScore,
-    required this.pronunciationScore,
-    required this.fluencyScore,
-    required this.lexicalScore,
-    required this.grammarScore,
-    required this.sentencesPronunciation,
-    required this.relevance,
-    required this.speed,
-    required this.wordCount,
+    required this.providerRequestId,
+    required this.suggestedScore,
+    required this.pronAccuracy,
+    required this.pronFluency,
+    required this.pronunciationWords,
   });
 
   factory AssessmentDetail.fromJson(JsonMap json) => AssessmentDetail(
@@ -269,15 +265,11 @@ class AssessmentDetail {
         questionAudioUrl: asString(json['questionAudioUrl']),
         audioPath: asString(json['audioPath']),
         transcription: asString(json['transcription']),
-        overallScore: asNullableDouble(json['overallScore']),
-        pronunciationScore: asNullableDouble(json['pronunciationScore']),
-        fluencyScore: asNullableDouble(json['fluencyCoherenceScore']),
-        lexicalScore: asNullableDouble(json['lexicalResourceScore']),
-        grammarScore: asNullableDouble(json['grammarScore']),
-        sentencesPronunciation: json['sentencesPronunciation'],
-        relevance: json['relevance'] == null ? null : asInt(json['relevance']),
-        speed: json['speed'] == null ? null : asInt(json['speed']),
-        wordCount: json['wordCnt'] == null ? null : asInt(json['wordCnt']),
+        providerRequestId: asString(json['providerRequestId']),
+        suggestedScore: asNullableDouble(json['suggestedScore']),
+        pronAccuracy: asNullableDouble(json['pronAccuracy']),
+        pronFluency: asNullableDouble(json['pronFluency']),
+        pronunciationWords: json['pronunciationWords'],
       );
 
   final int id;
@@ -289,15 +281,11 @@ class AssessmentDetail {
   final String questionAudioUrl;
   final String audioPath;
   final String transcription;
-  final double? overallScore;
-  final double? pronunciationScore;
-  final double? fluencyScore;
-  final double? lexicalScore;
-  final double? grammarScore;
-  final Object? sentencesPronunciation;
-  final int? relevance;
-  final int? speed;
-  final int? wordCount;
+  final String providerRequestId;
+  final double? suggestedScore;
+  final double? pronAccuracy;
+  final double? pronFluency;
+  final Object? pronunciationWords;
 }
 
 class RecordDetails {
@@ -316,15 +304,15 @@ class RecordDetails {
 
 class AiEvaluation {
   const AiEvaluation({
-    required this.overallScore,
-    required this.pronunciationScore,
-    required this.fluencyScore,
-    required this.lexicalScore,
-    required this.grammarScore,
-    required this.sentencesPronunciation,
-    required this.relevance,
-    required this.speed,
-    required this.wordCount,
+    required this.overallBand,
+    required this.pronunciationBand,
+    required this.fluencyCoherenceBand,
+    required this.lexicalResourceBand,
+    required this.grammarBand,
+    required this.suggestedScore,
+    required this.pronAccuracy,
+    required this.pronFluency,
+    required this.words,
     required this.overallSummary,
     required this.fluencySummary,
     required this.fluencyStrengths,
@@ -341,15 +329,15 @@ class AiEvaluation {
   });
 
   factory AiEvaluation.fromJson(JsonMap json) => AiEvaluation(
-        overallScore: asNullableDouble(json['overallScore']),
-        pronunciationScore: asNullableDouble(json['pronunciationScore']),
-        fluencyScore: asNullableDouble(json['fluencyCoherenceScore']),
-        lexicalScore: asNullableDouble(json['lexicalResourceScore']),
-        grammarScore: asNullableDouble(json['grammarScore']),
-        sentencesPronunciation: json['sentencesPronunciation'],
-        relevance: json['relevance'] == null ? null : asInt(json['relevance']),
-        speed: json['speed'] == null ? null : asInt(json['speed']),
-        wordCount: json['wordCnt'] == null ? null : asInt(json['wordCnt']),
+        overallBand: asNullableDouble(json['overallBand']),
+        pronunciationBand: asNullableDouble(json['pronunciationBand']),
+        fluencyCoherenceBand: asNullableDouble(json['fluencyCoherenceBand']),
+        lexicalResourceBand: asNullableDouble(json['lexicalResourceBand']),
+        grammarBand: asNullableDouble(json['grammarBand']),
+        suggestedScore: asNullableDouble(json['suggestedScore']),
+        pronAccuracy: asNullableDouble(json['pronAccuracy']),
+        pronFluency: asNullableDouble(json['pronFluency']),
+        words: json['words'],
         overallSummary: asString(json['overallSummary']),
         fluencySummary: asString(json['fcSummary']),
         fluencyStrengths: asString(json['fcStrengths']),
@@ -365,15 +353,15 @@ class AiEvaluation {
         improvedAnswerFeedback: asString(json['improvedAnswerFeedback']),
       );
 
-  final double? overallScore;
-  final double? pronunciationScore;
-  final double? fluencyScore;
-  final double? lexicalScore;
-  final double? grammarScore;
-  final Object? sentencesPronunciation;
-  final int? relevance;
-  final int? speed;
-  final int? wordCount;
+  final double? overallBand;
+  final double? pronunciationBand;
+  final double? fluencyCoherenceBand;
+  final double? lexicalResourceBand;
+  final double? grammarBand;
+  final double? suggestedScore;
+  final double? pronAccuracy;
+  final double? pronFluency;
+  final Object? words;
   final String overallSummary;
   final String fluencySummary;
   final String fluencyStrengths;

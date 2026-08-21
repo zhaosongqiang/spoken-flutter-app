@@ -240,14 +240,20 @@ class ContentPlaceholder extends StatelessWidget {
 }
 
 class ScoreBadge extends StatelessWidget {
-  const ScoreBadge(this.score, {this.pill = true, super.key});
+  const ScoreBadge(
+    this.score, {
+    this.pill = true,
+    this.maxScore = 9,
+    super.key,
+  });
 
   final double? score;
   final bool pill;
+  final int maxScore;
 
   @override
   Widget build(BuildContext context) {
-    final label = '${score?.toStringAsFixed(1) ?? '—'} / 9';
+    final label = '${score?.toStringAsFixed(1) ?? '—'} / $maxScore';
     if (!pill) {
       return Text(
         label,

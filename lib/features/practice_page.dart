@@ -656,7 +656,7 @@ class _AnswerCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        ScoreBadge(answer.result.score),
+                        ScoreBadge(answer.result.score, maxScore: 100),
                         const SizedBox(width: 8),
                         TextButton(
                           onPressed: () => openPage(

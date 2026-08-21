@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ielts_speaking/core/recording/speechsuper_wav_normalizer.dart';
+import 'package:ielts_speaking/core/recording/assessment_wav_normalizer.dart';
 import 'package:ielts_speaking/core/recording/wav_pcm16.dart';
 
 void main() {
@@ -79,7 +79,7 @@ void main() {
       sampleFor: (frame, channel) => frame,
     );
 
-    final output = await normalizeSpeechSuperWav(input);
+    final output = await normalizeAssessmentWav(input);
     final header = ByteData.sublistView(output);
 
     expect(header.getUint16(22, Endian.little), 1);

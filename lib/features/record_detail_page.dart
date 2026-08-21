@@ -237,7 +237,7 @@ class _DetailExchange extends StatelessWidget {
                           ),
                           child: Row(
                             children: [
-                              ScoreBadge(detail.overallScore),
+                              ScoreBadge(detail.suggestedScore, maxScore: 100),
                               const SizedBox(width: 8),
                               TextButton(
                                 onPressed: () => openPage(
