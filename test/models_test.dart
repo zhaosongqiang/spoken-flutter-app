@@ -13,13 +13,11 @@ void main() {
       'questionAudioUrl': null,
       'audioPath': null,
       'transcription': null,
-      'providerRequestId': 'voice-1',
       'suggestedScore': 82.5,
       'pronAccuracy': null,
     });
 
     expect(detail.id, 33);
-    expect(detail.providerRequestId, 'voice-1');
     expect(detail.suggestedScore, 82.5);
     expect(detail.pronAccuracy, isNull);
     expect(detail.audioPath, isEmpty);

@@ -248,7 +248,6 @@ class AssessmentDetail {
     required this.questionAudioUrl,
     required this.audioPath,
     required this.transcription,
-    required this.providerRequestId,
     required this.suggestedScore,
     required this.pronAccuracy,
     required this.pronFluency,
@@ -265,7 +264,6 @@ class AssessmentDetail {
         questionAudioUrl: asString(json['questionAudioUrl']),
         audioPath: asString(json['audioPath']),
         transcription: asString(json['transcription']),
-        providerRequestId: asString(json['providerRequestId']),
         suggestedScore: asNullableDouble(json['suggestedScore']),
         pronAccuracy: asNullableDouble(json['pronAccuracy']),
         pronFluency: asNullableDouble(json['pronFluency']),
@@ -281,7 +279,6 @@ class AssessmentDetail {
   final String questionAudioUrl;
   final String audioPath;
   final String transcription;
-  final String providerRequestId;
   final double? suggestedScore;
   final double? pronAccuracy;
   final double? pronFluency;
