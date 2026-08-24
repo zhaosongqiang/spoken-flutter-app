@@ -222,10 +222,11 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
         ? libraries.seasonal
         : libraries.cambridge;
     final query = _search.trim().toLowerCase();
+    final isSearching = query.isNotEmpty;
     final seasonalResults = libraries.seasonal.tests.where((test) {
       final matchesSearch = query.isEmpty ||
           '${test.name} ${test.displayName}'.toLowerCase().contains(query);
-      return matchesSearch && (_part == 0 || test.part == _part);
+      return matchesSearch && (isSearching || _part == 0 || test.part == _part);
     }).toList();
     final visibleSeasonal = seasonalResults.take(_visible).toList();
     final normalizedQuery = query.replaceAll(RegExp(r'\s'), '');
@@ -236,7 +237,8 @@ class _TopicSelectionPageState extends ConsumerState<TopicSelectionPage> {
               .toLowerCase()
               .replaceAll(RegExp(r'\s'), '')
               .contains(normalizedQuery);
-      return matchesSearch && bookNumber >= _bookMin && bookNumber <= _bookMax;
+      return matchesSearch &&
+          (isSearching || (bookNumber >= _bookMin && bookNumber <= _bookMax));
     }).toList();
     final hasResults = _mode == LibraryMode.seasonal
         ? seasonalResults.isNotEmpty
