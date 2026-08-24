@@ -511,16 +511,16 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
                   )
                 : score >= 80
                     ? (
-                        color: const Color(0xFF095717),
+                        color: const Color(0xFF5BAE5F),
                         label: '清晰',
                       )
                     : score >= 60
                         ? (
-                            color: const Color(0xFF684600),
+                            color: const Color(0xFFDDB049),
                             label: '一般',
                           )
                         : (
-                            color: const Color(0xFFA92227),
+                            color: const Color(0xFFEC5B57),
                             label: '需改进',
                           );
             final text = asString(word['word']);
