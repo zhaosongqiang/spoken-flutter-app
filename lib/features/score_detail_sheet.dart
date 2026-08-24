@@ -1,36 +1,70 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import '../core/audio_service.dart';
 import '../core/models.dart';
 import '../core/providers.dart';
 import '../ui/design.dart';
 import '../ui/widgets.dart';
 
-enum FeedbackMetric { pronunciation, fluency, vocabulary, grammar }
+Future<void> showScoreDetailSheet({
+  required BuildContext context,
+  required int recordId,
+  required int detailId,
+  AssessmentDetail? initialDetail,
+}) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: const Color(0x6B111111),
+      backgroundColor: AppColors.background,
+      constraints: const BoxConstraints(maxWidth: 480),
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: AppColors.border),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (context) {
+        final availableHeight = MediaQuery.sizeOf(context).height;
+        final desiredHeight = (availableHeight * .52).clamp(320.0, 620.0);
+        return SizedBox(
+          height: desiredHeight.clamp(0.0, availableHeight).toDouble(),
+          child: ScoreDetailSheet(
+            recordId: recordId,
+            detailId: detailId,
+            initialDetail: initialDetail,
+          ),
+        );
+      },
+    );
 
-class FeedbackPage extends ConsumerStatefulWidget {
-  const FeedbackPage({
+enum ScoreDetailTab { pronunciation, fluency, vocabulary, grammar, improved }
+
+class ScoreDetailSheet extends ConsumerStatefulWidget {
+  const ScoreDetailSheet({
     required this.recordId,
     required this.detailId,
-    required this.source,
+    this.initialDetail,
     super.key,
   });
 
   final int recordId;
   final int detailId;
-  final String source;
+  final AssessmentDetail? initialDetail;
 
   @override
-  ConsumerState<FeedbackPage> createState() => _FeedbackPageState();
+  ConsumerState<ScoreDetailSheet> createState() => _ScoreDetailSheetState();
 }
 
-class _FeedbackPageState extends ConsumerState<FeedbackPage> {
+class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
+  late final AppAudioService _audioService;
   AssessmentDetail? _detail;
   AiEvaluation? _evaluation;
-  FeedbackMetric _metric = FeedbackMetric.pronunciation;
+  ScoreDetailTab _metric = ScoreDetailTab.pronunciation;
   bool _loadingDetails = true;
   bool _loadingAi = false;
   bool _loadingTts = false;
@@ -40,35 +74,49 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   @override
   void initState() {
     super.initState();
-    _loadDetails();
+    _audioService = ref.read(audioServiceProvider);
+    unawaited(_audioService.stop());
+    unawaited(_loadDetails());
   }
 
   Future<void> _loadDetails() async {
     setState(() {
-      _loadingDetails = true;
+      _loadingDetails = widget.initialDetail == null;
+      _loadingAi = false;
       _detailsError = null;
       _aiError = null;
-      _detail = null;
+      _detail = widget.initialDetail;
       _evaluation = null;
     });
+    AssessmentDetail? detail = widget.initialDetail;
     try {
       await ref.read(accountBootstrapProvider.future);
       final api = await ref.read(spokenApiProvider.future);
-      final data = await api.recordDetails(widget.recordId);
-      AssessmentDetail? detail;
-      for (final candidate in data.details) {
-        if (candidate.id == widget.detailId) {
-          detail = candidate;
-          break;
+      if (detail == null) {
+        final data = await api.recordDetails(widget.recordId);
+        for (final candidate in data.details) {
+          if (candidate.id == widget.detailId) {
+            detail = candidate;
+            break;
+          }
         }
       }
       if (!mounted) return;
       setState(() {
         _detail = detail;
+        _loadingDetails = false;
       });
       if (detail != null) await _loadAi();
     } catch (error) {
-      if (mounted) setState(() => _detailsError = error.toString());
+      if (mounted) {
+        setState(() {
+          if (detail == null) {
+            _detailsError = error.toString();
+          } else {
+            _aiError = error.toString();
+          }
+        });
+      }
     } finally {
       if (mounted) setState(() => _loadingDetails = false);
     }
@@ -89,6 +137,12 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     } finally {
       if (mounted) setState(() => _loadingAi = false);
     }
+  }
+
+  void _selectMetric(ScoreDetailTab metric) {
+    if (_metric == metric) return;
+    unawaited(_audioService.stop());
+    setState(() => _metric = metric);
   }
 
   Future<void> _playAi() async {
@@ -113,60 +167,82 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     }
   }
 
-  void _back() {
-    if (context.canPop()) {
-      context.pop();
-      return;
-    }
-    context.go('/history/${widget.recordId}');
-  }
-
-  Future<void> _openFeedbackSheet() async {
-    final submitted = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: AppColors.background,
-      constraints: const BoxConstraints(maxWidth: 480),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
-      builder: (context) => _FeedbackSubmissionSheet(
-        onSubmit: (content) async {
-          final api = await ref.read(spokenApiProvider.future);
-          await api.submitFeedback(
-            detailId: widget.detailId,
-            content: content,
-          );
-        },
-      ),
-    );
-    if (submitted == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('反馈已提交，感谢你的反馈')),
-      );
-    }
+  @override
+  void dispose() {
+    unawaited(_audioService.stop());
+    super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => AppFrame(
-        title: '评测反馈',
-        onBack: _back,
-        actions: null,
-        body: _body(),
+  Widget build(BuildContext context) => Material(
+        color: AppColors.background,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              SizedBox(
+                height: 52,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Text(
+                      '评分详情',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 14),
+                        child: IconButton(
+                          tooltip: '关闭评分详情',
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close, size: 22),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: _body()),
+            ],
+          ),
+        ),
       );
 
   Widget _body() {
     if (_loadingDetails || _loadingAi) {
-      return const StatePanel(
-        title: '正在生成评测反馈',
-        description: '正在整合发音、流利度、词汇与语法结果。',
-        loading: true,
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(18, 22, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  '正在加载评分详情…',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            SizedBox(height: 14),
+            Expanded(child: _ScoreDetailSkeleton()),
+          ],
+        ),
       );
     }
     if (_detailsError != null) {
       return StatePanel(
-        title: '评测反馈加载失败',
+        title: '评分详情加载失败',
         description: _detailsError,
         action: '重新加载',
         onAction: _loadDetails,
@@ -177,122 +253,63 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       return StatePanel(
         title: '还没有可查看的评测',
         description: '当前练习中没有找到这条评分明细。',
-        action: '返回上一页',
-        onAction: _back,
+        action: '关闭',
+        onAction: () => Navigator.of(context).pop(),
       );
     }
     if (_aiError != null) {
       return StatePanel(
-        title: '评测反馈加载失败',
+        title: '评分详情加载失败',
         description: '$_aiError\n录音和转写已保留，可以安全重试。',
         action: '重新加载',
         onAction: _loadAi,
       );
     }
-    return ListView(
+    return Column(
       children: [
-        _ScoreSummary(detail: detail, evaluation: _evaluation),
-        const SizedBox(height: 10),
         _metricTabs(),
-        const SizedBox(height: 20),
-        _metricPanel(detail),
-        if (_evaluation?.improvedAnswerText.isNotEmpty == true) ...[
-          const SizedBox(height: 28),
-          Text('优化后的回答', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 10),
-          Card(
-            color: AppColors.accentSoft,
-            child: Padding(
-              padding: const EdgeInsets.all(17),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _evaluation!.improvedAnswerFeedback,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      border: Border.all(color: AppColors.border),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _evaluation!.improvedAnswerText,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-        Container(
-          margin: const EdgeInsets.only(top: 24),
-          padding: const EdgeInsets.only(top: 16),
-          width: double.infinity,
-          child: OutlinedButton(
-            onPressed: _openFeedbackSheet,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.foreground,
-              backgroundColor: AppColors.background,
-              minimumSize: const Size.fromHeight(48),
-              side: const BorderSide(color: AppColors.border),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              textStyle: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            child: const Text('我要反馈'),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            child: _metricPanel(detail),
           ),
         ),
-        const SizedBox(height: 30),
       ],
     );
   }
 
-  Widget _metricTabs() => Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
+  Widget _metricTabs() => DecoratedBox(
+        decoration: const BoxDecoration(
           color: AppColors.background,
-          border: Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0D111111),
-              blurRadius: 14,
-              offset: Offset(0, 4),
-            ),
-          ],
+          border: Border(bottom: BorderSide(color: AppColors.border)),
         ),
-        child: Row(
-          children: [
-            _metricButton(FeedbackMetric.pronunciation, '发音',
-                _evaluation?.pronunciationBand),
-            _metricButton(FeedbackMetric.fluency, '流利度',
-                _evaluation?.fluencyCoherenceBand),
-            _metricButton(FeedbackMetric.vocabulary, '词汇',
-                _evaluation?.lexicalResourceBand),
-            _metricButton(
-                FeedbackMetric.grammar, '语法', _evaluation?.grammarBand),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          child: Row(
+            children: [
+              _metricButton(ScoreDetailTab.pronunciation, '发音'),
+              _metricButton(ScoreDetailTab.fluency, '流利度'),
+              _metricButton(ScoreDetailTab.vocabulary, '词汇'),
+              _metricButton(ScoreDetailTab.grammar, '语法'),
+              _metricButton(ScoreDetailTab.improved, '优化后的回答'),
+            ],
+          ),
         ),
       );
 
-  Widget _metricButton(FeedbackMetric metric, String label, double? score) {
+  Widget _metricButton(ScoreDetailTab metric, String label) {
     final selected = _metric == metric;
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _metric = metric),
+        onTap: () => _selectMetric(metric),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
           constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
           decoration: BoxDecoration(
             color: selected ? AppColors.accentSoft : null,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(8),
             border: Border(
               bottom: BorderSide(
                 color: selected ? AppColors.accent : Colors.transparent,
@@ -300,19 +317,14 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
               ),
             ),
           ),
-          child: Column(
-            children: [
-              Text(
-                score?.toStringAsFixed(1) ?? '—',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  color: selected ? AppColors.foreground : AppColors.muted,
-                ),
-              ),
-              Text(label, style: const TextStyle(fontSize: 10)),
-            ],
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? AppColors.foreground : AppColors.muted,
+              fontSize: 10,
+              height: 1.25,
+            ),
           ),
         ),
       ),
@@ -322,7 +334,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   Widget _metricPanel(AssessmentDetail detail) {
     final ai = _evaluation;
     return switch (_metric) {
-      FeedbackMetric.pronunciation => _feedbackSection(
+      ScoreDetailTab.pronunciation => _feedbackSection(
           title: '发音反馈',
           summary: ai?.pronunciationSummary ?? '基础发音评分已生成，AI 深度总结正在准备。',
           children: [
@@ -348,7 +360,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                     onPressed: detail.audioPath.isEmpty
                         ? null
                         : () => ref.read(audioServiceProvider).toggleUrl(
-                              'feedback-answer-${detail.id}',
+                              'score-detail-answer-${detail.id}',
                               detail.audioPath,
                             ),
                     child: const Text('我的录音'),
@@ -358,7 +370,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
             ),
           ],
         ),
-      FeedbackMetric.fluency => _feedbackSection(
+      ScoreDetailTab.fluency => _feedbackSection(
           title: '流利度与连贯性',
           summary: ai?.fluencySummary ?? 'AI 深度总结正在准备。',
           children: [
@@ -366,9 +378,54 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
             _insight('改进重点', ai?.fluencyImprovements),
           ],
         ),
-      FeedbackMetric.vocabulary => _vocabularyFeedback(ai),
-      FeedbackMetric.grammar => _grammarFeedback(ai),
+      ScoreDetailTab.vocabulary => _vocabularyFeedback(ai),
+      ScoreDetailTab.grammar => _grammarFeedback(ai),
+      ScoreDetailTab.improved => _improvedFeedback(ai),
     };
+  }
+
+  Widget _improvedFeedback(AiEvaluation? ai) {
+    final feedback = ai?.improvedAnswerFeedback.trim() ?? '';
+    final answer = ai?.improvedAnswerText.trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('优化后的回答', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.accentSoft,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                feedback.isEmpty ? '暂无优化建议。' : feedback,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  answer.isEmpty ? '暂无可优化的回答内容。' : answer,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _vocabularyFeedback(AiEvaluation? ai) {
@@ -511,20 +568,31 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
   Widget _insight(String label, String? value) {
     if (value == null || value.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          Text(label,
-              style: const TextStyle(
-                  color: AppColors.accent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 5),
-          Text(value),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.muted,
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
         ],
       ),
     );
@@ -774,189 +842,29 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   }
 }
 
-class _FeedbackSubmissionSheet extends StatefulWidget {
-  const _FeedbackSubmissionSheet({required this.onSubmit});
-
-  final Future<void> Function(String content) onSubmit;
+class _ScoreDetailSkeleton extends StatelessWidget {
+  const _ScoreDetailSkeleton();
 
   @override
-  State<_FeedbackSubmissionSheet> createState() =>
-      _FeedbackSubmissionSheetState();
-}
-
-class _FeedbackSubmissionSheetState extends State<_FeedbackSubmissionSheet> {
-  static const _maxLength = 500;
-
-  final _controller = TextEditingController();
-  bool _submitting = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final content = _controller.text.trim();
-    if (content.isEmpty) {
-      setState(() => _error = '请输入反馈内容');
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-      _error = null;
-    });
-    try {
-      await widget.onSubmit(content);
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _submitting = false;
-        _error = '提交失败：$error';
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => PopScope(
-        canPop: !_submitting,
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 48,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Text(
-                        '提交反馈',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: IconButton(
-                          tooltip: '关闭反馈',
-                          onPressed: _submitting
-                              ? null
-                              : () => Navigator.of(context).pop(false),
-                          icon: const Icon(Icons.close, size: 22),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '反馈任何错误或者建议，帮助我们更好地优化服务',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 13,
-                    height: 1.55,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '反馈内容',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 7),
-                TextField(
-                  controller: _controller,
-                  autofocus: true,
-                  enabled: !_submitting,
-                  minLines: 5,
-                  maxLines: 8,
-                  maxLength: _maxLength,
-                  buildCounter: (
-                    context, {
-                    required currentLength,
-                    required isFocused,
-                    required maxLength,
-                  }) =>
-                      null,
-                  decoration: InputDecoration(
-                    hintText: '请描述你发现的问题或建议',
-                    errorText: null,
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: _error == null
-                            ? AppColors.border
-                            : AppColors.foreground,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      if (value.trim().isNotEmpty) _error = null;
-                    });
-                  },
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _error ?? '',
-                        style: const TextStyle(
-                          color: AppColors.foreground,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${_controller.text.length} / $_maxLength',
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('提交中…'),
-                            ],
-                          )
-                        : const Text('提交反馈'),
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final blockHeight =
+              ((constraints.maxHeight - 20) / 3).clamp(0.0, 58.0).toDouble();
+          return Column(
+            children: [
+              for (var index = 0; index < 3; index++) ...[
+                if (index > 0) const SizedBox(height: 10),
+                Container(
+                  height: blockHeight,
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
+            ],
+          );
+        },
       );
 }
 
@@ -988,139 +896,4 @@ class _PronunciationLegendItem extends StatelessWidget {
           ),
         ],
       );
-}
-
-class _ScoreSummary extends StatelessWidget {
-  const _ScoreSummary({required this.detail, required this.evaluation});
-
-  final AssessmentDetail detail;
-  final AiEvaluation? evaluation;
-
-  @override
-  Widget build(BuildContext context) {
-    final score = evaluation?.overallBand;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 18),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.foreground,
-        border: Border.all(color: AppColors.foreground),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 112,
-                height: 112,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: ((score ?? 0) / 9).clamp(0, 1),
-                      strokeWidth: 12,
-                      strokeCap: StrokeCap.butt,
-                      color: AppColors.accent,
-                      backgroundColor: const Color(0xFF555555),
-                    ),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            score?.toStringAsFixed(1) ?? '—',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'monospace',
-                              fontSize: 34,
-                              height: 1,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text('/ 9.0',
-                              style: TextStyle(
-                                  color: AppColors.border, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  evaluation?.overallSummary.isNotEmpty == true
-                      ? evaluation!.overallSummary
-                      : '基础评分已保存，正在生成深度反馈。',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    height: 1.55,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.muted)),
-            ),
-            child: Row(
-              children: [
-                _stat(
-                    _formatScore(
-                        evaluation?.suggestedScore ?? detail.suggestedScore,
-                        100),
-                    '腾讯建议分'),
-                _stat(
-                    _formatScore(
-                        evaluation?.pronAccuracy ?? detail.pronAccuracy, 100),
-                    '发音准确度',
-                    separated: true),
-                _stat(
-                    _formatScore(
-                        evaluation?.pronFluency ?? detail.pronFluency, 1),
-                    '发音流利度',
-                    separated: true),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _stat(String value, String label, {bool separated = false}) =>
-      Expanded(
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(6, 12, 6, 0),
-          decoration: BoxDecoration(
-            border: separated
-                ? const Border(left: BorderSide(color: AppColors.muted))
-                : null,
-          ),
-          child: Column(
-            children: [
-              Text(value,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'monospace',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              Text(label,
-                  style:
-                      const TextStyle(color: AppColors.border, fontSize: 10)),
-            ],
-          ),
-        ),
-      );
-
-  String _formatScore(double? value, int maximum) => value == null
-      ? '—'
-      : '${value.toStringAsFixed(maximum == 1 ? 2 : 1)} / $maximum';
 }

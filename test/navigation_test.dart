@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:ielts_speaking/core/models.dart';
 import 'package:ielts_speaking/core/navigation_data.dart';
 import 'package:ielts_speaking/core/providers.dart';
-import 'package:ielts_speaking/features/feedback_page.dart';
 import 'package:ielts_speaking/features/history_page.dart';
 import 'package:ielts_speaking/features/practice_page.dart';
+import 'package:ielts_speaking/features/score_detail_sheet.dart';
 import 'package:ielts_speaking/router.dart';
 import 'package:ielts_speaking/ui/widgets.dart';
 
@@ -75,26 +75,10 @@ void main() {
     expect(pageChanges, 2);
   });
 
-  testWidgets('feedback back button pops to the existing source page',
+  testWidgets('score details open over the source page without page navigation',
       (tester) async {
     final pendingBootstrap = Completer<AccountBootstrap>();
-    final router = GoRouter(
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const Scaffold(body: Text('原页面')),
-        ),
-        GoRoute(
-          path: '/feedback',
-          builder: (context, state) => const FeedbackPage(
-            recordId: 1,
-            detailId: 2,
-            source: 'history',
-          ),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
+    var pageChanges = 0;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -103,18 +87,36 @@ void main() {
             (ref) => pendingBootstrap.future,
           ),
         ],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp(
+          navigatorObservers: [PageChangeObserver(() => pageChanges++)],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showScoreDetailSheet(
+                  context: context,
+                  recordId: 1,
+                  detailId: 2,
+                ),
+                child: const Text('查看评分详情'),
+              ),
+            ),
+          ),
+        ),
       ),
     );
 
-    router.push('/feedback');
+    await tester.tap(find.text('查看评分详情'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('评测反馈'), findsOneWidget);
+    expect(find.text('评分详情'), findsOneWidget);
+    expect(find.text('正在加载评分详情…'), findsOneWidget);
+    expect(pageChanges, 0);
 
-    await tester.tap(find.byTooltip('返回'));
+    await tester.tap(find.byTooltip('关闭评分详情'));
     await tester.pumpAndSettle();
-    expect(find.text('原页面'), findsOneWidget);
+    expect(find.text('查看评分详情'), findsOneWidget);
+    expect(find.text('评分详情'), findsNothing);
+    expect(pageChanges, 0);
   });
 
   testWidgets(

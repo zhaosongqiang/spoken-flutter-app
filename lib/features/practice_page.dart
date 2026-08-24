@@ -9,6 +9,7 @@ import '../core/providers.dart';
 import '../core/recording/voice_recorder.dart';
 import '../ui/design.dart';
 import '../ui/widgets.dart';
+import 'score_detail_sheet.dart';
 
 class PracticePage extends ConsumerStatefulWidget {
   const PracticePage({
@@ -502,9 +503,12 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                         : atLast
                             ? currentAnswer == null
                                 ? null
-                                : () => openPage(
-                                      context,
-                                      '/feedback/${currentAnswer.result.recordId}/${currentAnswer.result.detailId}?from=practice',
+                                : () => showScoreDetailSheet(
+                                      context: context,
+                                      recordId: currentAnswer.result.recordId,
+                                      detailId: currentAnswer.result.detailId,
+                                      initialDetail:
+                                          _scoreDetailFor(currentAnswer),
                                     )
                             : () => _next(
                                   questionCount,
@@ -659,9 +663,11 @@ class _AnswerCard extends StatelessWidget {
                         ScoreBadge(answer.result.score, maxScore: 100),
                         const SizedBox(width: 8),
                         TextButton(
-                          onPressed: () => openPage(
-                            context,
-                            '/feedback/${answer.result.recordId}/${answer.result.detailId}?from=practice',
+                          onPressed: () => showScoreDetailSheet(
+                            context: context,
+                            recordId: answer.result.recordId,
+                            detailId: answer.result.detailId,
+                            initialDetail: _scoreDetailFor(answer),
                           ),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.muted,
@@ -686,6 +692,22 @@ class _AnswerCard extends StatelessWidget {
         ),
       );
 }
+
+AssessmentDetail _scoreDetailFor(CompletedAnswer answer) => AssessmentDetail(
+      id: answer.result.detailId,
+      recordId: answer.result.recordId,
+      questionId: answer.question.id,
+      part: answer.question.part,
+      seqNo: answer.question.seqNo,
+      questionPrompt: answer.question.questionText,
+      questionAudioUrl: answer.question.audioUrl,
+      audioPath: answer.result.audioPath,
+      transcription: answer.result.transcription,
+      suggestedScore: answer.result.score,
+      pronAccuracy: null,
+      pronFluency: null,
+      pronunciationWords: null,
+    );
 
 class _AssessmentState extends StatelessWidget {
   const _AssessmentState();

@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import 'core/models.dart';
 import 'core/navigation_data.dart';
-import 'features/feedback_page.dart';
 import 'features/history_page.dart';
 import 'features/practice_page.dart';
 import 'features/record_detail_page.dart';
@@ -50,14 +49,6 @@ GoRouter createAppRouter({required VoidCallback onPageChanged}) {
           initialDetails: state.extra is RecordDetails
               ? state.extra as RecordDetails
               : null,
-        ),
-      ),
-      GoRoute(
-        path: '/feedback/:recordId/:detailId',
-        builder: (context, state) => FeedbackPage(
-          recordId: int.tryParse(state.pathParameters['recordId'] ?? '') ?? 0,
-          detailId: int.tryParse(state.pathParameters['detailId'] ?? '') ?? 0,
-          source: state.uri.queryParameters['from'] ?? 'history',
         ),
       ),
     ],

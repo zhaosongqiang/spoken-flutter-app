@@ -5,6 +5,7 @@ import '../core/models.dart';
 import '../core/providers.dart';
 import '../ui/design.dart';
 import '../ui/widgets.dart';
+import 'score_detail_sheet.dart';
 
 class RecordDetailPage extends ConsumerStatefulWidget {
   const RecordDetailPage({
@@ -240,15 +241,17 @@ class _DetailExchange extends StatelessWidget {
                               ScoreBadge(detail.suggestedScore, maxScore: 100),
                               const SizedBox(width: 8),
                               TextButton(
-                                onPressed: () => openPage(
-                                  context,
-                                  '/feedback/${detail.recordId}/${detail.id}?from=history',
+                                onPressed: () => showScoreDetailSheet(
+                                  context: context,
+                                  recordId: detail.recordId,
+                                  detailId: detail.id,
+                                  initialDetail: detail,
                                 ),
                                 style: TextButton.styleFrom(
                                   foregroundColor: AppColors.muted,
                                   textStyle: const TextStyle(fontSize: 12),
                                 ),
-                                child: const Text('查看反馈'),
+                                child: const Text('查看评分详情'),
                               ),
                               const Spacer(),
                               AudioAction(

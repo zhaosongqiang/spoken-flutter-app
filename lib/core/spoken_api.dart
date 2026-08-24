@@ -149,20 +149,6 @@ class SpokenApi {
         ),
       );
 
-  Future<void> submitFeedback({
-    required int detailId,
-    required String content,
-  }) async {
-    await _requestJson(
-      'POST',
-      '$_apiPrefix/feedback',
-      data: <String, Object>{
-        'detailId': detailId,
-        'content': content,
-      },
-    );
-  }
-
   Future<JsonMap> _requestJson(
     String method,
     String path, {
