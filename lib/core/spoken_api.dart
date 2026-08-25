@@ -105,6 +105,21 @@ class SpokenApi {
     return AiEvaluation.fromJson(json);
   }
 
+  Future<void> submitFeedback({
+    required int detailId,
+    required String content,
+  }) async {
+    await _requestJson(
+      'POST',
+      '$_apiPrefix/feedback',
+      data: <String, Object>{
+        'detailId': detailId,
+        'content': content.trim(),
+      },
+      contentType: Headers.jsonContentType,
+    );
+  }
+
   Future<Uint8List> aiSpoken(int recordId, {int? questionId}) async {
     try {
       final response = await _dio.post<List<int>>(

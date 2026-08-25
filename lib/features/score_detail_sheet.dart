@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/audio_service.dart';
@@ -9,6 +10,43 @@ import '../core/models.dart';
 import '../core/providers.dart';
 import '../ui/design.dart';
 import '../ui/widgets.dart';
+
+typedef ScoreFeedbackSubmitter = Future<void> Function(String content);
+
+Future<bool?> showScoreFeedbackSheet({
+  required BuildContext context,
+  required ScoreFeedbackSubmitter onSubmit,
+}) =>
+    showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: const Color(0x6B111111),
+      backgroundColor: AppColors.background,
+      constraints: const BoxConstraints(maxWidth: 480),
+      shape: const RoundedRectangleBorder(
+        side: BorderSide(color: AppColors.border),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      builder: (context) {
+        final media = MediaQuery.of(context);
+        final keyboardHeight = media.viewInsets.bottom;
+        final availableHeight = (media.size.height - keyboardHeight)
+            .clamp(0.0, media.size.height)
+            .toDouble();
+        final maxHeight = (availableHeight * .72).clamp(0.0, 610.0);
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardHeight),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: _ScoreFeedbackSheet(onSubmit: onSubmit),
+          ),
+        );
+      },
+    );
 
 Future<void> showScoreDetailSheet({
   required BuildContext context,
@@ -145,6 +183,30 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     setState(() => _metric = metric);
   }
 
+  Future<void> _openFeedback() async {
+    unawaited(_audioService.stop());
+    final submitted = await showScoreFeedbackSheet(
+      context: context,
+      onSubmit: (content) async {
+        final api = await ref.read(spokenApiProvider.future);
+        await api.submitFeedback(
+          detailId: widget.detailId,
+          content: content,
+        );
+      },
+    );
+    if (!mounted || submitted != true) return;
+    if (MediaQuery.supportsAnnounceOf(context)) {
+      unawaited(
+        SemanticsService.sendAnnouncement(
+          View.of(context),
+          '反馈已提交，感谢你的帮助',
+          Directionality.of(context),
+        ).catchError((Object _, StackTrace __) {}),
+      );
+    }
+  }
+
   Future<void> _playAi() async {
     if (_loadingTts) return;
     setState(() => _loadingTts = true);
@@ -274,9 +336,29 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
             child: _metricPanel(detail),
           ),
         ),
+        _feedbackBar(),
       ],
     );
   }
+
+  Widget _feedbackBar() => Container(
+        constraints: const BoxConstraints(minHeight: 64),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: OutlinedButton(
+          onPressed: _openFeedback,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(48),
+            side: const BorderSide(color: AppColors.foreground),
+            foregroundColor: AppColors.foreground,
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          child: const Text('我要反馈'),
+        ),
+      );
 
   Widget _metricTabs() => DecoratedBox(
         decoration: const BoxDecoration(
@@ -840,6 +922,217 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     }
     return const <dynamic>[];
   }
+}
+
+class _ScoreFeedbackSheet extends StatefulWidget {
+  const _ScoreFeedbackSheet({required this.onSubmit});
+
+  final ScoreFeedbackSubmitter onSubmit;
+
+  @override
+  State<_ScoreFeedbackSheet> createState() => _ScoreFeedbackSheetState();
+}
+
+class _ScoreFeedbackSheetState extends State<_ScoreFeedbackSheet> {
+  static const _maxLength = 500;
+
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _submitting = false;
+  bool _touched = false;
+  bool _failedOnce = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _touched = true;
+      _validate(showError: true);
+    }
+  }
+
+  bool _validate({required bool showError}) {
+    final valid = _controller.text.trim().isNotEmpty;
+    if (mounted) {
+      setState(() {
+        if (!valid && showError) {
+          _error = '请输入反馈内容';
+        } else if (valid) {
+          _error = null;
+        }
+      });
+    }
+    return valid;
+  }
+
+  void _handleChanged(String value) {
+    setState(() {
+      if (_touched && value.trim().isNotEmpty) _error = null;
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    _touched = true;
+    if (!_validate(showError: true)) {
+      _focusNode.requestFocus();
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await widget.onSubmit(_controller.text.trim());
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _failedOnce = true;
+        _error = '反馈提交失败，请检查网络后重新提交。';
+      });
+      _focusNode.requestFocus();
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode
+      ..removeListener(_handleFocusChange)
+      ..dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 52,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const Text(
+                      '提交反馈',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        tooltip: '关闭反馈',
+                        onPressed: () => Navigator.of(context).pop(false),
+                        icon: const Icon(Icons.close, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 4, bottom: 16),
+                child: Text(
+                  '反馈任何错误或建议，帮助我们更好地优化评分服务。',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                    height: 1.55,
+                  ),
+                ),
+              ),
+              const Text(
+                '反馈内容',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                autofocus: true,
+                enabled: !_submitting,
+                minLines: 5,
+                maxLines: 7,
+                maxLength: _maxLength,
+                onChanged: _handleChanged,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  hintText: '请描述你的建议或遇到的问题',
+                  counterText: '',
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(
+                      color: _error == null
+                          ? AppColors.border
+                          : AppColors.foreground,
+                    ),
+                    borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  ),
+                ),
+              ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 24),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            _error ?? '',
+                            style: const TextStyle(
+                              color: AppColors.foreground,
+                              fontSize: 12,
+                              height: 1.45,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${_controller.text.length} / $_maxLength',
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              FilledButton(
+                onPressed: _submitting ? null : _submit,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: Text(
+                  _submitting
+                      ? '正在提交…'
+                      : _failedOnce
+                          ? '重新提交'
+                          : '提交反馈',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _ScoreDetailSkeleton extends StatelessWidget {
