@@ -110,6 +110,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('评分详情'), findsOneWidget);
     expect(find.text('正在加载评分详情…'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(ScoreDetailSheet)).height,
+      closeTo(
+          tester.view.physicalSize.height / tester.view.devicePixelRatio * .7,
+          .01),
+    );
     expect(pageChanges, 0);
 
     await tester.tap(find.byTooltip('关闭评分详情'));

@@ -68,7 +68,7 @@ Future<void> showScoreDetailSheet({
       clipBehavior: Clip.antiAlias,
       builder: (context) {
         final availableHeight = MediaQuery.sizeOf(context).height;
-        final desiredHeight = (availableHeight * .52).clamp(320.0, 620.0);
+        final desiredHeight = availableHeight * .7;
         return SizedBox(
           height: desiredHeight.clamp(0.0, availableHeight).toDouble(),
           child: ScoreDetailSheet(
@@ -417,7 +417,6 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     final ai = _evaluation;
     return switch (_metric) {
       ScoreDetailTab.pronunciation => _feedbackSection(
-          title: '发音反馈',
           summary: ai?.pronunciationSummary ?? '基础发音评分已生成，AI 深度总结正在准备。',
           children: [
             _pronunciationWords(ai?.words ?? detail.pronunciationWords),
@@ -453,7 +452,6 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
           ],
         ),
       ScoreDetailTab.fluency => _feedbackSection(
-          title: '流利度与连贯性',
           summary: ai?.fluencySummary ?? 'AI 深度总结正在准备。',
           children: [
             _insight('表现亮点', ai?.fluencyStrengths),
@@ -469,44 +467,37 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
   Widget _improvedFeedback(AiEvaluation? ai) {
     final feedback = ai?.improvedAnswerFeedback.trim() ?? '';
     final answer = ai?.improvedAnswerText.trim() ?? '';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('优化后的回答', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 10),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.accentSoft,
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(8),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.accentSoft,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            feedback.isEmpty ? '暂无优化建议。' : feedback,
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                feedback.isEmpty ? '暂无优化建议。' : feedback,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  answer.isEmpty ? '暂无可优化的回答内容。' : answer,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              answer.isEmpty ? '暂无可优化的回答内容。' : answer,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -514,7 +505,6 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     final strengths = _asList(ai?.lexicalStrongExpressions);
     final improvements = _asList(ai?.lexicalImprovements);
     return _feedbackSection(
-      title: '词汇反馈',
       summary: ai?.lexicalSummary ?? 'AI 深度总结正在准备。',
       children: [
         if (strengths.isNotEmpty) _vocabularyStrengths(strengths),
@@ -532,7 +522,6 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     final structures = _asList(ai?.grammarStructures);
     final corrections = _asList(ai?.grammarCorrections);
     return _feedbackSection(
-      title: '语法反馈',
       summary: ai?.grammarSummary ?? 'AI 深度总结正在准备。',
       children: [
         if (structures.isNotEmpty) _grammarStructures(structures),
@@ -547,29 +536,21 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
   }
 
   Widget _feedbackSection({
-    required String title,
     required String summary,
     required List<Widget> children,
   }) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 10),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(17),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(summary, style: Theme.of(context).textTheme.bodyLarge),
-                  if (children.isNotEmpty) const SizedBox(height: 14),
-                  ...children,
-                ],
-              ),
-            ),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(summary, style: Theme.of(context).textTheme.bodyLarge),
+              if (children.isNotEmpty) const SizedBox(height: 14),
+              ...children,
+            ],
           ),
-        ],
+        ),
       );
 
   Widget _pronunciationWords(Object? source) {
