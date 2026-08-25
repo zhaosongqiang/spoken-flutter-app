@@ -45,6 +45,7 @@ class VoiceRecorder extends ChangeNotifier {
           sampleRate: 16000,
           numChannels: 1,
           bitRate: 256000,
+          autoGain: true,
         ),
         path: path,
       );

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 const _pcmFormat = 1;
 const _pcmBitsPerSample = 16;
 const _wavHeaderSize = 44;
+const _pcmFullScale = 32768.0;
 
 /// Converts a PCM16 WAV to the sample rate and channel count required by
 /// the pronunciation assessment API. Downsampling uses area averaging to avoid simply dropping
@@ -62,6 +63,99 @@ Uint8List normalizePcm16Wav(
   }
   return output;
 }
+
+/// Normalizes active speech in a PCM16 WAV while preserving headroom.
+///
+/// RMS is measured only in 20 ms frames above [noiseGateDbfs], so leading and
+/// trailing silence do not cause excessive amplification. Gain is capped by
+/// [maxGainDb] and by [peakCeilingDbfs], keeping the operation linear and
+/// preventing clipping that could affect pronunciation assessment.
+Uint8List normalizePcm16WavLoudness(
+  Uint8List bytes, {
+  double targetRmsDbfs = -18,
+  double peakCeilingDbfs = -1,
+  double maxGainDb = 12,
+  double noiseGateDbfs = -50,
+}) {
+  if (targetRmsDbfs >= 0) {
+    throw ArgumentError.value(targetRmsDbfs, 'targetRmsDbfs', 'must be < 0');
+  }
+  if (peakCeilingDbfs > 0) {
+    throw ArgumentError.value(
+      peakCeilingDbfs,
+      'peakCeilingDbfs',
+      'must be <= 0',
+    );
+  }
+  if (maxGainDb < 0) {
+    throw ArgumentError.value(maxGainDb, 'maxGainDb', 'must be >= 0');
+  }
+
+  final source = _readPcm16Wav(bytes);
+  final sourceFrames = source.dataLength ~/ source.blockAlign;
+  if (sourceFrames == 0) {
+    throw const FormatException('WAV contains no audio frames');
+  }
+
+  final view = ByteData.sublistView(bytes);
+  final framesPerWindow = math.max(1, (source.sampleRate * .02).round());
+  final gateAmplitude = _dbfsToAmplitude(noiseGateDbfs);
+  var activeSquareSum = 0.0;
+  var activeSampleCount = 0;
+  var peak = 0;
+
+  for (var windowStart = 0;
+      windowStart < sourceFrames;
+      windowStart += framesPerWindow) {
+    final windowEnd = math.min(sourceFrames, windowStart + framesPerWindow);
+    var windowSquareSum = 0.0;
+    var windowSampleCount = 0;
+    for (var frame = windowStart; frame < windowEnd; frame++) {
+      final frameOffset = source.dataOffset + frame * source.blockAlign;
+      for (var channel = 0; channel < source.channels; channel++) {
+        final sample = view.getInt16(
+          frameOffset + channel * 2,
+          Endian.little,
+        );
+        peak = math.max(peak, sample.abs());
+        windowSquareSum += sample * sample;
+        windowSampleCount++;
+      }
+    }
+    final windowRms = math.sqrt(windowSquareSum / windowSampleCount);
+    if (windowRms >= gateAmplitude) {
+      activeSquareSum += windowSquareSum;
+      activeSampleCount += windowSampleCount;
+    }
+  }
+
+  if (peak == 0 || activeSampleCount == 0) return bytes;
+
+  final activeRms = math.sqrt(activeSquareSum / activeSampleCount);
+  final targetGain = _dbfsToAmplitude(targetRmsDbfs) / activeRms;
+  final maximumGain = math.pow(10, maxGainDb / 20).toDouble();
+  final peakLimitedGain = _dbfsToAmplitude(peakCeilingDbfs) / peak;
+  final gain = math.min(targetGain, math.min(maximumGain, peakLimitedGain));
+  if ((gain - 1).abs() < .001) return bytes;
+
+  final output = Uint8List.fromList(bytes);
+  final outputView = ByteData.sublistView(output);
+  for (var frame = 0; frame < sourceFrames; frame++) {
+    final frameOffset = source.dataOffset + frame * source.blockAlign;
+    for (var channel = 0; channel < source.channels; channel++) {
+      final offset = frameOffset + channel * 2;
+      final sample = outputView.getInt16(offset, Endian.little);
+      outputView.setInt16(
+        offset,
+        (sample * gain).round().clamp(-32768, 32767).toInt(),
+        Endian.little,
+      );
+    }
+  }
+  return output;
+}
+
+double _dbfsToAmplitude(double dbfs) => _pcmFullScale * math.pow(10, dbfs / 20);
 
 double _downsampleFrame(
   ByteData bytes,

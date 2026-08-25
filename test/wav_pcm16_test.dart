@@ -69,14 +69,12 @@ void main() {
     expect(identical(output, input), isTrue);
   });
 
-  test('web recording entrypoint selects the normalizing implementation',
-      () async {
-    if (!kIsWeb) return;
+  test('recording entrypoint normalizes format and quiet speech', () async {
     final input = _createPcm16Wav(
       sampleRate: 48000,
       channels: 1,
       frames: 480,
-      sampleFor: (frame, channel) => frame,
+      sampleFor: (frame, channel) => frame.isEven ? 1000 : -1000,
     );
 
     final output = await normalizeAssessmentWav(input);
@@ -85,7 +83,72 @@ void main() {
     expect(header.getUint16(22, Endian.little), 1);
     expect(header.getUint32(24, Endian.little), 16000);
     expect(header.getUint16(34, Endian.little), 16);
+    expect(header.getInt16(44, Endian.little).abs(), greaterThan(1000));
   });
+
+  test('loudness normalization ignores silence around quiet active speech', () {
+    final input = _createPcm16Wav(
+      sampleRate: 16000,
+      channels: 1,
+      frames: 1600,
+      sampleFor: (frame, channel) {
+        if (frame < 320 || frame >= 1280) return 0;
+        return frame.isEven ? 1000 : -1000;
+      },
+    );
+
+    final output = normalizePcm16WavLoudness(
+      input,
+      maxGainDb: 24,
+    );
+    final samples = _samples(output);
+
+    expect(samples.take(320), everyElement(0));
+    expect(samples.skip(1280), everyElement(0));
+    expect(samples[400].abs(), closeTo(4125, 2));
+  });
+
+  test('loudness normalization limits peaks below the clipping ceiling', () {
+    final input = _createPcm16Wav(
+      sampleRate: 16000,
+      channels: 1,
+      frames: 1600,
+      sampleFor: (frame, channel) {
+        if (frame == 800) return 30000;
+        return frame.isEven ? 1000 : -1000;
+      },
+    );
+
+    final output = normalizePcm16WavLoudness(input);
+    final outputPeak = _samples(output).map((sample) => sample.abs()).reduce(
+          (left, right) => left > right ? left : right,
+        );
+
+    expect(outputPeak, lessThanOrEqualTo(29205));
+    expect(outputPeak, greaterThan(29000));
+  });
+
+  test('loudness normalization does not amplify content below the noise gate',
+      () {
+    final input = _createPcm16Wav(
+      sampleRate: 16000,
+      channels: 1,
+      frames: 320,
+      sampleFor: (frame, channel) => frame.isEven ? 50 : -50,
+    );
+
+    final output = normalizePcm16WavLoudness(input);
+
+    expect(identical(output, input), isTrue);
+  });
+}
+
+List<int> _samples(Uint8List wav) {
+  final view = ByteData.sublistView(wav);
+  return <int>[
+    for (var offset = 44; offset < wav.length; offset += 2)
+      view.getInt16(offset, Endian.little),
+  ];
 }
 
 Uint8List _createPcm16Wav({
