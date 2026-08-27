@@ -144,7 +144,8 @@ void main() {
         <String, dynamic>{
           'word': 'Hello',
           'overall': 95,
-          'pause': false,
+          'pause': true,
+          'link': <String, dynamic>{'linkable': 1, 'linked': 0},
         },
       ],
     );
@@ -179,6 +180,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Hello'), findsOneWidget);
+    expect(find.text('未连读'), findsOneWidget);
+    expect(find.text('停顿'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Hello，发音评分95.0，清晰，可与下一词连读，但未连读，词后有停顿',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('基础发音评分已生成，AI 深度总结正在准备。'), findsOneWidget);
     expect(find.text('正在加载评分详情…'), findsNothing);
   });

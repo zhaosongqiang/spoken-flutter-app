@@ -575,54 +575,95 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 4,
-          runSpacing: 6,
-          children: words.map((word) {
-            final score = asNullableDouble(word['overall']);
-            final level = score == null
-                ? (
-                    color: AppColors.muted,
-                    label: '无评分',
-                  )
-                : score >= 80
-                    ? (
-                        color: const Color(0xFF5BAE5F),
-                        label: '清晰',
-                      )
-                    : score >= 60
-                        ? (
-                            color: const Color(0xFFDDB049),
-                            label: '一般',
-                          )
-                        : (
-                            color: const Color(0xFFEC5B57),
-                            label: '需改进',
-                          );
-            final text = asString(word['word']);
-            final scoreLabel = score?.toStringAsFixed(1) ?? '无';
-            return Semantics(
-              label: '$text，发音评分$scoreLabel，${level.label}',
-              child: ExcludeSemantics(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      color: level.color,
-                      fontWeight: FontWeight.w700,
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Wrap(
+            spacing: 4,
+            runSpacing: 5,
+            children: words.map((word) {
+              final score = asNullableDouble(word['overall']);
+              final level = score == null
+                  ? (
+                      color: AppColors.muted,
+                      label: '无评分',
+                    )
+                  : score >= 80
+                      ? (
+                          color: const Color(0xFF5BAE5F),
+                          label: '清晰',
+                        )
+                      : score >= 60
+                          ? (
+                              color: const Color(0xFFDDB049),
+                              label: '一般',
+                            )
+                          : (
+                              color: const Color(0xFFEC5B57),
+                              label: '需改进',
+                            );
+              final text = asString(word['word']);
+              final scoreLabel = score?.toStringAsFixed(1) ?? '无';
+              final link = asJsonMap(word['link']);
+              final missedLink =
+                  asInt(link['linkable']) == 1 && asInt(link['linked']) != 1;
+              final pause = word['pause'] == true;
+              final flowLabels = <String>[
+                if (missedLink) '可与下一词连读，但未连读',
+                if (pause) '词后有停顿',
+              ];
+              return Semantics(
+                label: [
+                  text,
+                  '发音评分$scoreLabel',
+                  level.label,
+                  ...flowLabels,
+                ].join('，'),
+                child: ExcludeSemantics(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 1),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 1),
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              color: level.color,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (missedLink) ...[
+                          const SizedBox(width: 2),
+                          const _PronunciationFlowMarker(
+                            type: _PronunciationFlowType.missedLink,
+                          ),
+                        ],
+                        if (pause) ...[
+                          const SizedBox(width: 2),
+                          const _PronunciationFlowMarker(
+                            type: _PronunciationFlowType.pause,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+          ),
         ),
         const SizedBox(height: 10),
-        const Wrap(
-          spacing: 10,
-          runSpacing: 8,
+        const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             _PronunciationLegendItem(
               color: Color(0xFF5BAE5F),
@@ -635,6 +676,14 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
             _PronunciationLegendItem(
               color: Color(0xFFEC5B57),
               label: '需改进',
+            ),
+            _PronunciationLegendItem(
+              flowType: _PronunciationFlowType.missedLink,
+              label: '未连读',
+            ),
+            _PronunciationLegendItem(
+              flowType: _PronunciationFlowType.pause,
+              label: '停顿',
             ),
           ],
         ),
@@ -1157,25 +1206,30 @@ class _ScoreDetailSkeleton extends StatelessWidget {
 
 class _PronunciationLegendItem extends StatelessWidget {
   const _PronunciationLegendItem({
-    required this.color,
     required this.label,
-  });
+    this.color,
+    this.flowType,
+  }) : assert((color == null) != (flowType == null));
 
-  final Color color;
+  final Color? color;
+  final _PronunciationFlowType? flowType;
   final String label;
 
   @override
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(3),
+          if (flowType case final flowType?)
+            _PronunciationFlowMarker(type: flowType)
+          else
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(3),
+              ),
             ),
-          ),
           const SizedBox(width: 5),
           Text(
             label,
@@ -1183,4 +1237,82 @@ class _PronunciationLegendItem extends StatelessWidget {
           ),
         ],
       );
+}
+
+enum _PronunciationFlowType { missedLink, pause }
+
+class _PronunciationFlowMarker extends StatelessWidget {
+  const _PronunciationFlowMarker({required this.type});
+
+  final _PronunciationFlowType type;
+
+  @override
+  Widget build(BuildContext context) => switch (type) {
+        _PronunciationFlowType.missedLink => const SizedBox(
+            width: 15,
+            height: 15,
+            child: CustomPaint(
+              painter: _MissedLinkPainter(color: AppColors.muted),
+            ),
+          ),
+        _PronunciationFlowType.pause => Container(
+            width: 15,
+            height: 15,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.foreground),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 2,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: AppColors.foreground,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Container(
+                  width: 2,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: AppColors.foreground,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      };
+}
+
+class _MissedLinkPainter extends CustomPainter {
+  const _MissedLinkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final path = Path()
+      ..moveTo(1.5, 10)
+      ..quadraticBezierTo(size.width / 2, 4, size.width - 1.5, 10);
+    for (final metric in path.computeMetrics()) {
+      for (var start = 0.0; start < metric.length; start += 4) {
+        final end = start + 2 < metric.length ? start + 2 : metric.length;
+        canvas.drawPath(metric.extractPath(start, end), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MissedLinkPainter oldDelegate) =>
+      color != oldDelegate.color;
 }
