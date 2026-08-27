@@ -120,23 +120,28 @@ class SpokenApi {
     );
   }
 
-  Future<Uint8List> aiSpoken(int recordId, {int? questionId}) async {
+  Future<String> aiSpoken(int detailId) async {
     try {
-      final response = await _dio.post<List<int>>(
+      final response = await _dio.post<Object?>(
         '$_apiPrefix/pronunciation/ai_spoken',
-        data: <String, Object>{
-          'recordId': recordId,
-          if (questionId != null) 'questionId': questionId,
-        },
+        data: <String, Object>{'detailId': detailId},
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          responseType: ResponseType.bytes,
           receiveTimeout: const Duration(seconds: 75),
         ),
       );
-      final bytes = Uint8List.fromList(response.data ?? const <int>[]);
-      if (bytes.isEmpty) throw const ApiException('音频响应为空');
-      return bytes;
+      final payload = asJsonMap(response.data);
+      final code = asInt(payload['code'], -1);
+      if (code != 0) {
+        throw ApiException(
+          asString(payload['message'], 'AI 标准发音生成失败'),
+          status: response.statusCode ?? 200,
+          code: code,
+        );
+      }
+      final audioUrl = asString(payload['data']).trim();
+      if (audioUrl.isEmpty) throw const ApiException('音频地址为空');
+      return audioUrl;
     } on DioException catch (error) {
       throw _mapDioException(error, 'AI 标准发音生成失败');
     }

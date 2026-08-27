@@ -253,6 +253,7 @@ class AssessmentDetail {
     required this.transcription,
     required this.suggestedScore,
     required this.words,
+    required this.aiPronunciationAudioUrl,
   });
 
   factory AssessmentDetail.fromJson(JsonMap json) => AssessmentDetail(
@@ -267,6 +268,7 @@ class AssessmentDetail {
         transcription: asString(json['transcription']),
         suggestedScore: asNullableDouble(json['suggestedScore']),
         words: asJsonMapList(json['words']),
+        aiPronunciationAudioUrl: asString(json['aiPronunciationAudioUrl']),
       );
 
   final int id;
@@ -280,6 +282,7 @@ class AssessmentDetail {
   final String transcription;
   final double? suggestedScore;
   final List<JsonMap> words;
+  final String aiPronunciationAudioUrl;
 }
 
 class RecordDetails {

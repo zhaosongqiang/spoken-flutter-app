@@ -31,12 +31,14 @@ void main() {
       'transcription': null,
       'suggestedScore': 82.5,
       'words': null,
+      'aiPronunciationAudioUrl': null,
     });
 
     expect(detail.id, 33);
     expect(detail.suggestedScore, 82.5);
     expect(detail.words, isEmpty);
     expect(detail.audioPath, isEmpty);
+    expect(detail.aiPronunciationAudioUrl, isEmpty);
   });
 
   test('flattens library tests', () {
@@ -77,6 +79,7 @@ void main() {
           'seqNo': 1,
           'questionPrompt': 'Do you like science?',
           'suggestedScore': 81,
+          'aiPronunciationAudioUrl': 'https://example.com/ai-pronunciation.mp3',
           'words': [
             {'word': 'science', 'overall': 92, 'pause': false}
           ],
@@ -89,6 +92,10 @@ void main() {
     expect(details.details.single.suggestedScore, 81);
     expect(details.details.single.words.single['word'], 'science');
     expect(details.details.single.words.single['overall'], 92);
+    expect(
+      details.details.single.aiPronunciationAudioUrl,
+      'https://example.com/ai-pronunciation.mp3',
+    );
   });
 
   test('parses the AI evaluation content independently from words', () {

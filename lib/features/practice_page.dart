@@ -707,6 +707,7 @@ AssessmentDetail _scoreDetailFor(CompletedAnswer answer) => AssessmentDetail(
       transcription: answer.result.transcription,
       suggestedScore: answer.result.score,
       words: answer.result.words,
+      aiPronunciationAudioUrl: '',
     );
 
 class _AssessmentState extends StatelessWidget {

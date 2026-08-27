@@ -108,11 +108,13 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
   bool _loadingTts = false;
   String? _detailsError;
   String? _aiError;
+  String _aiAudioUrl = '';
 
   @override
   void initState() {
     super.initState();
     _audioService = ref.read(audioServiceProvider);
+    _aiAudioUrl = widget.initialDetail?.aiPronunciationAudioUrl.trim() ?? '';
     unawaited(_audioService.stop());
     unawaited(_loadDetails());
   }
@@ -125,6 +127,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       _aiError = null;
       _detail = widget.initialDetail;
       _evaluation = null;
+      _aiAudioUrl = widget.initialDetail?.aiPronunciationAudioUrl.trim() ?? '';
     });
     AssessmentDetail? detail = widget.initialDetail;
     try {
@@ -143,6 +146,9 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       setState(() {
         _detail = detail;
         _loadingDetails = false;
+        if (_aiAudioUrl.isEmpty) {
+          _aiAudioUrl = detail?.aiPronunciationAudioUrl.trim() ?? '';
+        }
       });
       if (detail != null) await _loadAi();
     } catch (error) {
@@ -209,19 +215,21 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
 
   Future<void> _playAi() async {
     if (_loadingTts) return;
-    setState(() => _loadingTts = true);
+    var audioUrl = _aiAudioUrl;
+    if (audioUrl.isEmpty) setState(() => _loadingTts = true);
     try {
-      final api = await ref.read(spokenApiProvider.future);
-      final bytes =
-          await api.aiSpoken(widget.recordId, questionId: _detail?.questionId);
+      if (audioUrl.isEmpty) {
+        final api = await ref.read(spokenApiProvider.future);
+        audioUrl = await api.aiSpoken(widget.detailId);
+        if (!mounted) return;
+        setState(() => _aiAudioUrl = audioUrl);
+      }
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-      await ref
-          .read(audioServiceProvider)
-          .playBytes('ai-${widget.detailId}', bytes);
+      await _audioService.toggleUrl('ai-${widget.detailId}', audioUrl);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI 标准发音生成失败：$error')),
+          SnackBar(content: Text('AI 标准发音播放失败：$error')),
         );
       }
     } finally {

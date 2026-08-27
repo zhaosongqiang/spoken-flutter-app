@@ -148,6 +148,7 @@ void main() {
           'link': <String, dynamic>{'linkable': 1, 'linked': 0},
         },
       ],
+      aiPronunciationAudioUrl: '',
     );
 
     await tester.pumpWidget(
