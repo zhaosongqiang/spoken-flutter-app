@@ -643,8 +643,11 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
                         ),
                         if (missedLink) ...[
                           const SizedBox(width: 2),
-                          const _PronunciationFlowMarker(
-                            type: _PronunciationFlowType.missedLink,
+                          Transform.translate(
+                            offset: const Offset(0, -4),
+                            child: const _PronunciationFlowMarker(
+                              type: _PronunciationFlowType.missedLink,
+                            ),
                           ),
                         ],
                         if (pause) ...[
