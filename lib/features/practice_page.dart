@@ -34,6 +34,7 @@ class PracticePage extends ConsumerStatefulWidget {
 class _PracticePageState extends ConsumerState<PracticePage> {
   static const double _cardGap = 10;
   static const Duration _questionAudioDelay = Duration(milliseconds: 300);
+  static const Duration _maxRecordingDuration = Duration(seconds: 89);
 
   late Future<SpokenQuestions> _questions;
   late final VoiceRecorder _recorder;
@@ -47,7 +48,8 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   @override
   void initState() {
     super.initState();
-    _recorder = VoiceRecorder()..addListener(_recorderChanged);
+    _recorder = VoiceRecorder(maxDuration: _maxRecordingDuration)
+      ..addListener(_recorderChanged);
     _questions = widget.initialQuestions == null
         ? _load()
         : Future<SpokenQuestions>.value(widget.initialQuestions!);
