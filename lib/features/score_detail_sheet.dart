@@ -129,8 +129,8 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
     AssessmentDetail? detail = widget.initialDetail;
     try {
       await ref.read(accountBootstrapProvider.future);
-      final api = await ref.read(spokenApiProvider.future);
       if (detail == null) {
+        final api = await ref.read(spokenApiProvider.future);
         final data = await api.recordDetails(widget.recordId);
         for (final candidate in data.details) {
           if (candidate.id == widget.detailId) {
@@ -276,7 +276,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       );
 
   Widget _body() {
-    if (_loadingDetails || _loadingAi) {
+    if (_loadingDetails) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(18, 22, 18, 18),
         child: Column(
@@ -319,17 +319,10 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
         onAction: () => Navigator.of(context).pop(),
       );
     }
-    if (_aiError != null) {
-      return StatePanel(
-        title: '评分详情加载失败',
-        description: '$_aiError\n录音和转写已保留，可以安全重试。',
-        action: '重新加载',
-        onAction: _loadAi,
-      );
-    }
     return Column(
       children: [
         _metricTabs(),
+        if (_loadingAi || _aiError != null) _aiStatus(),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
@@ -340,6 +333,30 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       ],
     );
   }
+
+  Widget _aiStatus() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        color: AppColors.surface,
+        child: Row(
+          children: [
+            if (_loadingAi) ...[
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('AI 深度评估正在生成…')),
+            ] else ...[
+              const Icon(Icons.error_outline, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('AI 深度评估加载失败，发音词评分仍可查看。')),
+              TextButton(onPressed: _loadAi, child: const Text('重试')),
+            ],
+          ],
+        ),
+      );
 
   Widget _feedbackBar() => Container(
         constraints: const BoxConstraints(minHeight: 64),
@@ -419,7 +436,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       ScoreDetailTab.pronunciation => _feedbackSection(
           summary: ai?.pronunciationSummary ?? '基础发音评分已生成，AI 深度总结正在准备。',
           children: [
-            _pronunciationWords(ai?.words ?? detail.pronunciationWords),
+            _pronunciationWords(detail.words),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -553,11 +570,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
         ),
       );
 
-  Widget _pronunciationWords(Object? source) {
-    final words = _asList(source)
-        .whereType<Map>()
-        .map((word) => Map<String, dynamic>.from(word))
-        .toList();
+  Widget _pronunciationWords(List<JsonMap> words) {
     if (words.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +579,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
           spacing: 4,
           runSpacing: 6,
           children: words.map((word) {
-            final score = asNullableDouble(word['pronAccuracy']);
+            final score = asNullableDouble(word['overall']);
             final level = score == null
                 ? (
                     color: AppColors.muted,
@@ -589,7 +602,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
             final text = asString(word['word']);
             final scoreLabel = score?.toStringAsFixed(1) ?? '无';
             return Semantics(
-              label: '$text，发音准确度$scoreLabel，${level.label}',
+              label: '$text，发音评分$scoreLabel，${level.label}',
               child: ExcludeSemantics(
                 child: Padding(
                   padding:

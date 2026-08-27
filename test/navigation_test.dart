@@ -126,6 +126,64 @@ void main() {
   });
 
   testWidgets(
+      'score details render passed words before AI evaluation completes',
+      (tester) async {
+    final pendingBootstrap = Completer<AccountBootstrap>();
+    const detail = AssessmentDetail(
+      id: 2,
+      recordId: 1,
+      questionId: 3,
+      part: 1,
+      seqNo: 1,
+      questionPrompt: 'Say hello.',
+      questionAudioUrl: '',
+      audioPath: '',
+      transcription: 'Hello.',
+      suggestedScore: 95,
+      words: [
+        <String, dynamic>{
+          'word': 'Hello',
+          'overall': 95,
+          'pause': false,
+        },
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountBootstrapProvider.overrideWith(
+            (ref) => pendingBootstrap.future,
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showScoreDetailSheet(
+                  context: context,
+                  recordId: detail.recordId,
+                  detailId: detail.id,
+                  initialDetail: detail,
+                ),
+                child: const Text('查看评分详情'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('查看评分详情'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Hello'), findsOneWidget);
+    expect(find.text('基础发音评分已生成，AI 深度总结正在准备。'), findsOneWidget);
+    expect(find.text('正在加载评分详情…'), findsNothing);
+  });
+
+  testWidgets(
       'practice back skips confirmation after every question is answered',
       (tester) async {
     final firstQuestion = QuestionItem.fromJson(<String, dynamic>{
@@ -152,6 +210,7 @@ void main() {
       audioPath: '',
       score: 6.5,
       transcription: 'Yes, I do.',
+      words: [],
     );
     const secondResult = AssessmentResult(
       recordId: 28,
@@ -159,6 +218,7 @@ void main() {
       audioPath: '',
       score: 7,
       transcription: 'I enjoy physics.',
+      words: [],
     );
     final container = ProviderContainer();
     addTearDown(container.dispose);

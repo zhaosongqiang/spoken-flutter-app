@@ -2,6 +2,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ielts_speaking/core/models.dart';
 
 void main() {
+  test('parses pronunciation words from the assessment response', () {
+    final result = AssessmentResult.fromJson(<String, dynamic>{
+      'recordId': 28,
+      'detailId': 81,
+      'audioPath': '/audio/81.wav',
+      'score': 92,
+      'transcription': 'Hello world.',
+      'words': [
+        {'word': 'Hello', 'overall': 96, 'pause': false},
+      ],
+    });
+
+    expect(result.words.single['word'], 'Hello');
+    expect(result.words.single['overall'], 96);
+  });
+
   test('parses nullable backend fields without throwing', () {
     final detail = AssessmentDetail.fromJson(<String, dynamic>{
       'id': 33,
@@ -14,12 +30,12 @@ void main() {
       'audioPath': null,
       'transcription': null,
       'suggestedScore': 82.5,
-      'pronAccuracy': null,
+      'words': null,
     });
 
     expect(detail.id, 33);
     expect(detail.suggestedScore, 82.5);
-    expect(detail.pronAccuracy, isNull);
+    expect(detail.words, isEmpty);
     expect(detail.audioPath, isEmpty);
   });
 
@@ -61,10 +77,8 @@ void main() {
           'seqNo': 1,
           'questionPrompt': 'Do you like science?',
           'suggestedScore': 81,
-          'pronAccuracy': 90,
-          'pronFluency': 0.87,
-          'pronunciationWords': [
-            {'word': 'science', 'pronAccuracy': 92, 'matchTag': 0}
+          'words': [
+            {'word': 'science', 'overall': 92, 'pause': false}
           ],
         }
       ],
@@ -73,34 +87,19 @@ void main() {
     expect(details.record.id, 28);
     expect(details.record.testName, 'Science');
     expect(details.details.single.suggestedScore, 81);
-    expect(details.details.single.pronAccuracy, 90);
-    expect(details.details.single.pronFluency, 0.87);
-    expect(details.details.single.pronunciationWords, isA<List<dynamic>>());
+    expect(details.details.single.words.single['word'], 'science');
+    expect(details.details.single.words.single['overall'], 92);
   });
 
-  test('parses Qwen bands and flat Tencent words independently', () {
+  test('parses the AI evaluation content independently from words', () {
     final evaluation = AiEvaluation.fromJson(<String, dynamic>{
-      'overallBand': 6.5,
-      'pronunciationBand': 6,
-      'fluencyCoherenceBand': 6.5,
-      'lexicalResourceBand': 7,
-      'grammarBand': 6,
-      'suggestedScore': 82.5,
-      'pronAccuracy': 91,
-      'pronFluency': 0.88,
-      'words': [
-        {
-          'word': 'science',
-          'pronAccuracy': 92,
-          'pronFluency': 0.9,
-          'matchTag': 0,
-        }
-      ],
+      'overallSummary': '回答切题',
+      'pronunciationSummary': '发音清晰',
+      'fcSummary': '表达流畅',
     });
 
-    expect(evaluation.overallBand, 6.5);
-    expect(evaluation.suggestedScore, 82.5);
-    expect(evaluation.pronFluency, 0.88);
-    expect(evaluation.words, isA<List<dynamic>>());
+    expect(evaluation.overallSummary, '回答切题');
+    expect(evaluation.pronunciationSummary, '发音清晰');
+    expect(evaluation.fluencySummary, '表达流畅');
   });
 }
