@@ -15,11 +15,19 @@ final accountBootstrapProvider = FutureProvider<AccountBootstrap>((ref) async {
 });
 
 typedef RecordDetailsLoader = Future<RecordDetails> Function(int recordId);
+typedef AiEvaluationLoader = Future<AiEvaluation> Function(int detailId);
 
 final recordDetailsLoaderProvider = Provider<RecordDetailsLoader>((ref) {
   return (recordId) async {
     final api = await ref.read(spokenApiProvider.future);
     return api.recordDetails(recordId);
+  };
+});
+
+final aiEvaluationLoaderProvider = Provider<AiEvaluationLoader>((ref) {
+  return (detailId) async {
+    final api = await ref.read(spokenApiProvider.future);
+    return api.aiEvaluation(detailId);
   };
 });
 

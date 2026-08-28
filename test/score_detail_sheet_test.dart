@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ielts_speaking/core/models.dart';
+import 'package:ielts_speaking/core/providers.dart';
 import 'package:ielts_speaking/features/score_detail_sheet.dart';
 import 'package:ielts_speaking/ui/design.dart';
 
@@ -74,6 +77,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(attempts, 2);
     expect(find.text('提交反馈'), findsNothing);
+  });
+
+  testWidgets('correction suggestions use the optimized dash prefix',
+      (tester) async {
+    const detail = AssessmentDetail(
+      id: 2,
+      recordId: 1,
+      questionId: 3,
+      part: 1,
+      seqNo: 1,
+      questionPrompt: 'Say hello.',
+      questionAudioUrl: '',
+      audioPath: '',
+      transcription: 'Hello.',
+      suggestedScore: 7,
+      words: [],
+      aiPronunciationAudioUrl: '',
+    );
+    const evaluation = AiEvaluation(
+      overallSummary: '',
+      fluencySummary: '',
+      fluencyStrengths: '',
+      fluencyImprovements: '',
+      grammarSummary: '语法总结',
+      grammarStructures: [
+        {'type': '复杂句', 'example': 'An example.'},
+      ],
+      grammarCorrections: [
+        {
+          'original': 'I goes.',
+          'suggestions': ['I go.'],
+          'reason': '主谓一致。',
+        },
+      ],
+      lexicalSummary: '词汇总结',
+      lexicalImprovements: [
+        {
+          'original': 'very good',
+          'suggestions': ['excellent'],
+          'reason': '表达更准确。',
+        },
+      ],
+      lexicalStrongExpressions: [],
+      pronunciationSummary: '',
+      improvedAnswerText: '',
+      improvedAnswerFeedback: '',
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          accountBootstrapProvider.overrideWith(
+            (ref) async => const AccountBootstrap(
+              accountStatus: 'trial',
+              newUser: false,
+            ),
+          ),
+          aiEvaluationLoaderProvider.overrideWithValue(
+            (detailId) async => evaluation,
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: ScoreDetailSheet(
+              recordId: 1,
+              detailId: 2,
+              initialDetail: detail,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('词汇'));
+    await tester.pump();
+    expect(find.text('- excellent'), findsOneWidget);
+
+    await tester.tap(find.text('语法'));
+    await tester.pump();
+    expect(find.text('- I go.'), findsOneWidget);
+    expect(find.text('复杂句'), findsOneWidget);
+    expect(find.text('- 复杂句'), findsNothing);
   });
 }
 

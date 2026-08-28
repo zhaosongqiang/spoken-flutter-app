@@ -41,6 +41,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
   final ScrollController _scrollController = ScrollController();
   Timer? _questionAudioTimer;
   int? _presentedQuestionId;
+  String? _latestCardKey;
   int _index = 0;
   bool _assessing = false;
   String? _assessmentError;
@@ -66,6 +67,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     }
     _questionAudioTimer?.cancel();
     _presentedQuestionId = null;
+    _latestCardKey = null;
     _index = 0;
     _assessmentError = null;
     _questions = widget.initialQuestions == null
@@ -226,14 +228,24 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         _index += 1;
         _assessmentError = null;
       });
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 240),
-          curve: Curves.easeOut,
-        );
-      }
     }
+  }
+
+  void _keepLatestCardVisible(String cardKey) {
+    if (_latestCardKey == cardKey) return;
+    _latestCardKey = cardKey;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _latestCardKey != cardKey ||
+          !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -300,6 +312,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     final currentAnswer = session.answers
         .where((answer) => answer.question.id == question.id)
         .firstOrNull;
+    final latestCardKey = !_assessing && currentAnswer != null
+        ? 'answer-${currentAnswer.result.detailId}'
+        : 'question-${question.id}';
+    _keepLatestCardVisible(latestCardKey);
     final progress = (_index + 1) / questions.length;
     final atLast = _index == questions.length - 1;
     final title = data.test?.displayName.isNotEmpty == true
@@ -374,38 +390,72 @@ class _PracticePageState extends ConsumerState<PracticePage> {
             backgroundColor: AppColors.surface,
           ),
           Expanded(
-            child: ListView(
+            child: CustomScrollView(
+              key: const ValueKey('practice-conversation-scroll'),
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-              children: [
-                for (final answer in session.answers
-                    .where((item) => item.question.id != question.id)) ...[
-                  _QuestionCard(question: answer.question, compact: true),
-                  const SizedBox(height: _cardGap),
-                  _AnswerCard(answer: answer),
-                  const SizedBox(height: _cardGap),
-                ],
-                _QuestionCard(question: question),
-                const SizedBox(height: _cardGap),
-                if (_assessing)
-                  const _AssessmentState()
-                else if (currentAnswer != null)
-                  _AnswerCard(answer: currentAnswer),
-                if (_assessmentError != null) ...[
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.all(13),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF2F0),
-                      border: Border.all(color: const Color(0xFFFFCCC7)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _assessmentError!,
-                      style: const TextStyle(color: Color(0xFFA8071A)),
+              slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final answer in session.answers.where(
+                            (item) => item.question.id != question.id)) ...[
+                          _QuestionCard(
+                            key: ValueKey(
+                              'practice-question-${answer.question.id}',
+                            ),
+                            question: answer.question,
+                            compact: true,
+                          ),
+                          const SizedBox(height: _cardGap),
+                          _AnswerCard(
+                            key: ValueKey(
+                              'practice-answer-${answer.question.id}',
+                            ),
+                            answer: answer,
+                          ),
+                          const SizedBox(height: _cardGap),
+                        ],
+                        _QuestionCard(
+                          key: ValueKey('practice-question-${question.id}'),
+                          question: question,
+                        ),
+                        if (_assessing || currentAnswer != null)
+                          const SizedBox(height: _cardGap),
+                        if (_assessing)
+                          const _AssessmentState()
+                        else if (currentAnswer != null)
+                          _AnswerCard(
+                            key: ValueKey(
+                              'practice-answer-${currentAnswer.question.id}',
+                            ),
+                            answer: currentAnswer,
+                          ),
+                        if (_assessmentError != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(13),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF2F0),
+                              border: Border.all(
+                                color: const Color(0xFFFFCCC7),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _assessmentError!,
+                              style: const TextStyle(color: Color(0xFFA8071A)),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -543,7 +593,11 @@ class _PracticePageState extends ConsumerState<PracticePage> {
 }
 
 class _QuestionCard extends StatelessWidget {
-  const _QuestionCard({required this.question, this.compact = false});
+  const _QuestionCard({
+    required this.question,
+    this.compact = false,
+    super.key,
+  });
 
   final QuestionItem question;
   final bool compact;
@@ -609,7 +663,7 @@ class _QuestionCard extends StatelessWidget {
 }
 
 class _AnswerCard extends StatelessWidget {
-  const _AnswerCard({required this.answer});
+  const _AnswerCard({required this.answer, super.key});
 
   final CompletedAnswer answer;
 

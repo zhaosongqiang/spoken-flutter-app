@@ -173,8 +173,8 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
       _evaluation = null;
     });
     try {
-      final api = await ref.read(spokenApiProvider.future);
-      final evaluation = await api.aiEvaluation(widget.detailId);
+      final evaluation =
+          await ref.read(aiEvaluationLoaderProvider)(widget.detailId);
       if (mounted) setState(() => _evaluation = evaluation);
     } catch (error) {
       if (mounted) setState(() => _aiError = error.toString());
@@ -937,7 +937,7 @@ class _ScoreDetailSheetState extends ConsumerState<ScoreDetailSheet> {
                 if (original.isNotEmpty || suggestionIndex > 0)
                   const SizedBox(height: 5),
                 Text(
-                  suggestions[suggestionIndex],
+                  '- ${suggestions[suggestionIndex]}',
                   style: const TextStyle(
                     fontSize: 13,
                     height: 1.45,
