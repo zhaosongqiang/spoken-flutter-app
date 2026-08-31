@@ -64,7 +64,7 @@ void main() {
     expect(find.byType(ContentPlaceholder), findsOneWidget);
   });
 
-  testWidgets('practice anchors short question and answer cards to the bottom',
+  testWidgets('practice lays out short question and answer cards from the top',
       (tester) async {
     final firstQuestion = _question(1, 'What kind of science do you enjoy?');
     final secondQuestion = _question(2, 'Why is science important?');
@@ -80,12 +80,18 @@ void main() {
     final firstQuestionCard = find.byKey(
       const ValueKey('practice-question-1'),
     );
-    final conversationBottom = tester.getRect(conversation).bottom;
+    final conversationTop = tester.getRect(conversation).top;
     final initialQuestionTop = tester.getRect(firstQuestionCard).top;
     expect(
-      tester.getRect(firstQuestionCard).bottom,
-      closeTo(conversationBottom - 28, 0.01),
+      initialQuestionTop,
+      closeTo(conversationTop + 18, 0.01),
     );
+    final scrollable = find.descendant(
+      of: conversation,
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, 0);
 
     container
         .read(practiceSessionProvider.notifier)
@@ -96,10 +102,14 @@ void main() {
       const ValueKey('practice-answer-1'),
     );
     expect(
-      tester.getRect(firstAnswerCard).bottom,
-      closeTo(conversationBottom - 28, 0.01),
+      tester.getRect(firstQuestionCard).top,
+      closeTo(initialQuestionTop, 0.01),
     );
-    expect(tester.getRect(firstQuestionCard).top, lessThan(initialQuestionTop));
+    expect(
+      tester.getRect(firstAnswerCard).top,
+      closeTo(tester.getRect(firstQuestionCard).bottom + 10, 0.01),
+    );
+    expect(position.maxScrollExtent, 0);
 
     await tester.tap(find.text('下一题'));
     await tester.pumpAndSettle();
@@ -108,11 +118,48 @@ void main() {
       const ValueKey('practice-question-2'),
     );
     expect(
-      tester.getRect(secondQuestionCard).bottom,
-      closeTo(conversationBottom - 28, 0.01),
+      tester.getRect(secondQuestionCard).top,
+      closeTo(tester.getRect(firstAnswerCard).bottom + 10, 0.01),
     );
+    expect(position.maxScrollExtent, 0);
     expect(firstQuestionCard, findsOneWidget);
     expect(firstAnswerCard, findsOneWidget);
+  });
+
+  testWidgets('practice starts following the latest card after overflow',
+      (tester) async {
+    final question = _question(1, 'What kind of science do you enjoy?');
+    final container = await _pumpPractice(tester, questions: [question]);
+    addTearDown(container.dispose);
+
+    final conversation = find.byKey(
+      const ValueKey('practice-conversation-scroll'),
+    );
+    final scrollable = find.descendant(
+      of: conversation,
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, 0);
+
+    container.read(practiceSessionProvider.notifier).save(
+          question,
+          _result(
+            1,
+            transcription: List.filled(
+              80,
+              'This detailed answer explains why science matters.',
+            ).join(' '),
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.01));
+    expect(
+      tester.getRect(find.byKey(const ValueKey('practice-answer-1'))).bottom,
+      closeTo(tester.getRect(conversation).bottom - 28, 0.01),
+    );
   });
 
   testWidgets('practice follows new cards without resetting on other rebuilds',
@@ -179,12 +226,14 @@ QuestionItem _question(int id, String text) => QuestionItem(
       taskType: 'ANSWER_SHORT_QUESTION',
     );
 
-AssessmentResult _result(int questionId) => AssessmentResult(
+AssessmentResult _result(int questionId, {String? transcription}) =>
+    AssessmentResult(
       recordId: 10,
       detailId: 100 + questionId,
       audioPath: '',
       score: 7,
-      transcription: 'This is my answer to question $questionId.',
+      transcription:
+          transcription ?? 'This is my answer to question $questionId.',
       words: const [],
     );
 

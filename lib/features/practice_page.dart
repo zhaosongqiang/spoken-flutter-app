@@ -240,8 +240,10 @@ class _PracticePageState extends ConsumerState<PracticePage> {
           !_scrollController.hasClients) {
         return;
       }
+      final position = _scrollController.position;
+      if (position.maxScrollExtent <= position.minScrollExtent) return;
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        position.maxScrollExtent,
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOut,
       );
@@ -391,72 +393,61 @@ class _PracticePageState extends ConsumerState<PracticePage> {
             backgroundColor: AppColors.surface,
           ),
           Expanded(
-            child: CustomScrollView(
+            child: ListView(
               key: const ValueKey('practice-conversation-scroll'),
               controller: _scrollController,
-              slivers: [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final answer in session.answers.where(
-                            (item) => item.question.id != question.id)) ...[
-                          _QuestionCard(
-                            key: ValueKey(
-                              'practice-question-${answer.question.id}',
-                            ),
-                            question: answer.question,
-                            compact: true,
-                          ),
-                          const SizedBox(height: _cardGap),
-                          _AnswerCard(
-                            key: ValueKey(
-                              'practice-answer-${answer.question.id}',
-                            ),
-                            answer: answer,
-                          ),
-                          const SizedBox(height: _cardGap),
-                        ],
-                        _QuestionCard(
-                          key: ValueKey('practice-question-${question.id}'),
-                          question: question,
-                        ),
-                        if (_assessing || currentAnswer != null)
-                          const SizedBox(height: _cardGap),
-                        if (_assessing)
-                          const _AssessmentState()
-                        else if (currentAnswer != null)
-                          _AnswerCard(
-                            key: ValueKey(
-                              'practice-answer-${currentAnswer.question.id}',
-                            ),
-                            answer: currentAnswer,
-                          ),
-                        if (_assessmentError != null) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(13),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF2F0),
-                              border: Border.all(
-                                color: const Color(0xFFFFCCC7),
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _assessmentError!,
-                              style: const TextStyle(color: Color(0xFFA8071A)),
-                            ),
-                          ),
-                        ],
-                      ],
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+              children: [
+                for (final answer in session.answers
+                    .where((item) => item.question.id != question.id)) ...[
+                  _QuestionCard(
+                    key: ValueKey(
+                      'practice-question-${answer.question.id}',
+                    ),
+                    question: answer.question,
+                    compact: true,
+                  ),
+                  const SizedBox(height: _cardGap),
+                  _AnswerCard(
+                    key: ValueKey(
+                      'practice-answer-${answer.question.id}',
+                    ),
+                    answer: answer,
+                  ),
+                  const SizedBox(height: _cardGap),
+                ],
+                _QuestionCard(
+                  key: ValueKey('practice-question-${question.id}'),
+                  question: question,
+                ),
+                if (_assessing || currentAnswer != null)
+                  const SizedBox(height: _cardGap),
+                if (_assessing)
+                  const _AssessmentState()
+                else if (currentAnswer != null)
+                  _AnswerCard(
+                    key: ValueKey(
+                      'practice-answer-${currentAnswer.question.id}',
+                    ),
+                    answer: currentAnswer,
+                  ),
+                if (_assessmentError != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF2F0),
+                      border: Border.all(
+                        color: const Color(0xFFFFCCC7),
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _assessmentError!,
+                      style: const TextStyle(color: Color(0xFFA8071A)),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
