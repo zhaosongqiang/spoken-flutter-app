@@ -335,6 +335,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
         question,
         currentAnswer: currentAnswer,
         atLast: atLast,
+        allQuestionsAnswered: allQuestionsAnswered,
         questionCount: questions.length,
       ),
       body: Column(
@@ -468,6 +469,7 @@ class _PracticePageState extends ConsumerState<PracticePage> {
     QuestionItem question, {
     required CompletedAnswer? currentAnswer,
     required bool atLast,
+    required bool allQuestionsAnswered,
     required int questionCount,
   }) {
     final recording = _recorder.status == VoiceRecorderStatus.recording;
@@ -552,26 +554,20 @@ class _PracticePageState extends ConsumerState<PracticePage> {
                   child: TextButton(
                     onPressed: recording || _assessing
                         ? null
-                        : atLast
-                            ? currentAnswer == null
+                        : allQuestionsAnswered
+                            ? _leavePractice
+                            : atLast
                                 ? null
-                                : () => showScoreDetailSheet(
-                                      context: context,
-                                      recordId: currentAnswer.result.recordId,
-                                      detailId: currentAnswer.result.detailId,
-                                      initialDetail:
-                                          _scoreDetailFor(currentAnswer),
-                                    )
-                            : () => _next(
-                                  questionCount,
-                                  answered: currentAnswer != null,
-                                ),
+                                : () => _next(
+                                      questionCount,
+                                      answered: currentAnswer != null,
+                                    ),
                     child: Text(
-                      atLast
-                          ? currentAnswer == null
+                      allQuestionsAnswered
+                          ? '更多练习'
+                          : atLast
                               ? '最后一题'
-                              : '查看反馈'
-                          : '下一题',
+                              : '下一题',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),

@@ -285,6 +285,72 @@ void main() {
     expect(container.read(practiceSessionProvider).answers, isEmpty);
   });
 
+  testWidgets('completed practice offers more practice and returns to topics',
+      (tester) async {
+    final question = QuestionItem.fromJson(<String, dynamic>{
+      'id': 573,
+      'testId': 60,
+      'part': 1,
+      'seqNo': 1,
+      'questionText': 'Do you like science?',
+      'audioUrl': '',
+      'taskType': 'question',
+    });
+    const result = AssessmentResult(
+      recordId: 28,
+      detailId: 81,
+      audioPath: '',
+      score: 6.5,
+      transcription: 'Yes, I do.',
+      words: [],
+    );
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('选题页面')),
+        ),
+        GoRoute(
+          path: '/practice',
+          builder: (context, state) => PracticePage(
+            testId: 60,
+            mode: 'seasonal',
+            part: 1,
+            initialTitle: 'Science',
+            initialQuestions: SpokenQuestions(
+              test: null,
+              questions: [question],
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    router.push('/practice');
+    await tester.pumpAndSettle();
+
+    expect(find.text('最后一题'), findsOneWidget);
+    container.read(practiceSessionProvider.notifier).save(question, result);
+    await tester.pumpAndSettle();
+
+    expect(find.text('更多练习'), findsOneWidget);
+
+    await tester.tap(find.text('更多练习'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选题页面'), findsOneWidget);
+    expect(container.read(practiceSessionProvider).answers, isEmpty);
+  });
+
   testWidgets(
       'history records remain interactive after non-button navigation returns',
       (tester) async {
